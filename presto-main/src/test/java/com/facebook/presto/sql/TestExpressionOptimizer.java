@@ -23,11 +23,14 @@ import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
+import com.facebook.presto.sql.relational.LambdaDefinitionExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.toValues;
@@ -36,6 +39,7 @@ import static com.facebook.presto.metadata.Signature.internalOperator;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
+import static com.facebook.presto.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.IntegerType.INTEGER;
@@ -73,11 +77,12 @@ public class TestExpressionOptimizer
         ExpressionOptimizer optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
         Signature signature = new Signature("TRY", SCALAR, BIGINT.getTypeSignature());
 
-        RowExpression tryExpression = new CallExpression(signature, BIGINT, ImmutableList.of(constant(1L, BIGINT)));
-        assertEquals(optimizer.optimize(tryExpression), constant(1L, BIGINT));
-
-        tryExpression = new CallExpression(signature, BIGINT, ImmutableList.of(field(1, BIGINT)));
-        assertEquals(optimizer.optimize(tryExpression), field(1, BIGINT));
+        List<RowExpression> arguments = ImmutableList.of(constant(1L, BIGINT));
+        RowExpression tryExpression = new CallExpression(signature, BIGINT, arguments);
+        RowExpression lambda = new LambdaDefinitionExpression(ImmutableList.of(), ImmutableList.of(), arguments.get(0));
+        Signature tryFunctionSignature = new Signature(TRY_FUNCTION_NAME, SCALAR, BIGINT.getTypeSignature(), lambda.getType().getTypeSignature());
+        RowExpression tryFunctionExpression = new CallExpression(tryFunctionSignature, BIGINT, ImmutableList.of(lambda));
+        assertEquals(optimizer.optimize(tryExpression), tryFunctionExpression);
     }
 
     @Test

@@ -34,9 +34,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionKind.SCALAR;
 import static com.facebook.presto.metadata.Signature.internalScalarFunction;
 import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
+import static com.facebook.presto.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
 import static com.facebook.presto.spi.type.StandardTypes.MAP;
@@ -102,6 +104,11 @@ public class ExpressionOptimizer
             if (call.getSignature().getName().equals(CAST)) {
                 call = rewriteCast(call);
             }
+
+            if (call.getSignature().getName().equals(TRY)) {
+                call = rewriteTry(call);
+            }
+
             Signature signature = call.getSignature();
 
             switch (signature.getName()) {
@@ -257,6 +264,14 @@ public class ExpressionOptimizer
                     registry.getCoercion(call.getArguments().get(0).getType(), call.getType()),
                     call.getType(),
                     call.getArguments());
+        }
+
+        private CallExpression rewriteTry(CallExpression call)
+        {
+            RowExpression argument = call.getArguments().get(0);
+            LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(ImmutableList.of(), ImmutableList.of(), argument);
+            Signature signature = new Signature(TRY_FUNCTION_NAME, SCALAR, call.getSignature().getReturnType(), lambda.getType().getTypeSignature());
+            return call(signature, typeManager.getType(signature.getReturnType()), lambda);
         }
     }
 }

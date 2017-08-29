@@ -23,6 +23,7 @@ public class TestTryFunction
     @Test
     public void testTryFunction()
     {
+        // Valid case.
         assertFunction("\"$internal$try_function\"(() -> 42)", INTEGER, 42);
         assertFunction("\"$internal$try_function\"(() -> 1/0)", INTEGER, null);
     }
