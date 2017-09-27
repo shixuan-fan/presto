@@ -22,6 +22,7 @@ public class FileHiveMetastoreConfig
 {
     private String catalogDirectory;
     private String metastoreUser = "presto";
+    private boolean partitionNameRestricted = false;
 
     @NotNull
     public String getCatalogDirectory()
@@ -47,5 +48,17 @@ public class FileHiveMetastoreConfig
     public void setMetastoreUser(String metastoreUser)
     {
         this.metastoreUser = metastoreUser;
+    }
+
+    public boolean isPartitionNameRestricted()
+    {
+        return partitionNameRestricted;
+    }
+
+    @Config("hive.metastore.partition-name-restricted")
+    @ConfigDescription("Hive partition name is restricted to [\\x20-\\x7E]*")
+    public void setPartitionNameRestricted()
+    {
+        partitionNameRestricted = true;
     }
 }

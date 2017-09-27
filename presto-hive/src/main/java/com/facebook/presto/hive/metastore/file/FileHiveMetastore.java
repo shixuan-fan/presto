@@ -64,6 +64,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.Database.DEFAULT_DATABASE_NAME;
@@ -76,6 +77,7 @@ import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.regex.Pattern.matches;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -93,6 +95,7 @@ public class FileHiveMetastore
     private final Path catalogDirectory;
     private final HdfsContext hdfsContext;
     private final FileSystem metadataFileSystem;
+    private final boolean partitionNameRestricted;
 
     private final JsonCodec<DatabaseMetadata> databaseCodec = JsonCodec.jsonCodec(DatabaseMetadata.class);
     private final JsonCodec<TableMetadata> tableCodec = JsonCodec.jsonCodec(TableMetadata.class);
@@ -102,14 +105,15 @@ public class FileHiveMetastore
     @Inject
     public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, FileHiveMetastoreConfig config)
     {
-        this(hdfsEnvironment, config.getCatalogDirectory(), config.getMetastoreUser());
+        this(hdfsEnvironment, config.getCatalogDirectory(), config.getMetastoreUser(), config.isPartitionNameRestricted());
     }
 
-    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, String catalogDirectory, String metastoreUser)
+    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, String catalogDirectory, String metastoreUser, boolean partitionNameRestricted)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(catalogDirectory, "baseDirectory is null"));
         this.hdfsContext = new HdfsContext(new Identity(metastoreUser, Optional.empty()));
+        this.partitionNameRestricted = partitionNameRestricted;
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }
@@ -523,7 +527,16 @@ public class FileHiveMetastore
 
     private void verifiedPartition(Table table, Partition partition)
     {
-        Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
+        List<String> partitionValues = partition.getValues();
+        if (partitionNameRestricted) {
+            for (String partitionValue : partitionValues) {
+                if (!matches("[\\x20-\\x7E]*", partitionValue)) {
+                    throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, "Partition value " + partitionValue + " doesn't match pattern [\\x20-\\x7E]*");
+                }
+            }
+        }
+
+        Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partitionValues);
 
         if (table.getTableType().equals(MANAGED_TABLE.name())) {
             if (!partitionMetadataDirectory.equals(new Path(partition.getStorage().getLocation()))) {

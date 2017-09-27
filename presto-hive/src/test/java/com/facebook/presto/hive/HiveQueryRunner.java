@@ -91,7 +91,7 @@ public final class HiveQueryRunner
             HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
             HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
 
-            FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+            FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test", false);
             metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
             metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, metastore));

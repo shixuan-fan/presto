@@ -30,7 +30,7 @@ public class TestHiveClientFileMetastore
         HdfsConfigurationUpdater updator = new HdfsConfigurationUpdater(hiveConfig);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updator);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test", false);
     }
 
     @Override
