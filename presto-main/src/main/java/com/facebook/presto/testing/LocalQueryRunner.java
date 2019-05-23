@@ -874,6 +874,7 @@ public class LocalQueryRunner
 
         QueryExplainer queryExplainer = new QueryExplainer(
                 optimizers,
+                optimizers,
                 planFragmenter,
                 metadata,
                 accessControl,

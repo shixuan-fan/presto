@@ -23,13 +23,13 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.IOPlanOptimizers;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.tree.ExplainType.Type;
 import com.facebook.presto.sql.tree.Expression;
@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.CREATED;
 import static com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.graphvizLogicalPlan;
@@ -52,6 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class QueryExplainer
 {
     private final List<PlanOptimizer> planOptimizers;
+    private final List<PlanOptimizer> ioPlanOptimizers;
     private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -63,6 +65,7 @@ public class QueryExplainer
     @Inject
     public QueryExplainer(
             PlanOptimizers planOptimizers,
+            IOPlanOptimizers ioPlanOptimizers,
             PlanFragmenter planFragmenter,
             Metadata metadata,
             AccessControl accessControl,
@@ -73,6 +76,7 @@ public class QueryExplainer
     {
         this(
                 planOptimizers.get(),
+                ioPlanOptimizers.get(),
                 planFragmenter,
                 metadata,
                 accessControl,
@@ -84,6 +88,7 @@ public class QueryExplainer
 
     public QueryExplainer(
             List<PlanOptimizer> planOptimizers,
+            List<PlanOptimizer> ioPlanOptimizers,
             PlanFragmenter planFragmenter,
             Metadata metadata,
             AccessControl accessControl,
@@ -93,6 +98,7 @@ public class QueryExplainer
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.ioPlanOptimizers = requireNonNull(ioPlanOptimizers, "ioPlanOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -122,8 +128,6 @@ public class QueryExplainer
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionManager(), session, verbose);
-            case IO:
-                return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters, warningCollector).getRoot(), metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -162,7 +166,11 @@ public class QueryExplainer
 
         switch (planType) {
             case IO:
-                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                // analyze statement
+                Analysis analysis = analyze(session, statement, parameters, warningCollector);
+                // plan statement
+                LogicalPlanner logicalPlanner = new LogicalPlanner(true, session, ioPlanOptimizers,  new PlanNodeIdAllocator(), metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+                Plan plan = logicalPlanner.optimize(logicalPlanner.plan(analysis, CREATED));
                 return textIOPlan(plan.getRoot(), metadata, session);
             default:
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));

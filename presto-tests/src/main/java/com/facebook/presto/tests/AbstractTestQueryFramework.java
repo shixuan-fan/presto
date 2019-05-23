@@ -383,6 +383,7 @@ public abstract class AbstractTestQueryFramework
                 taskCountEstimator).get();
         return new QueryExplainer(
                 optimizers,
+                optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser),
                 metadata,
                 queryRunner.getAccessControl(),

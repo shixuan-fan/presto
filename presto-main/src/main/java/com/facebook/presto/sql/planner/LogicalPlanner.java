@@ -192,6 +192,17 @@ public class LogicalPlanner
         return new Plan(root, types, computeStats(root, types));
     }
 
+    public Plan optimize(Plan plan)
+    {
+        PlanNode root = plan.getRoot();
+        for (PlanOptimizer optimizer : planOptimizers) {
+            root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+            requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+        }
+        TypeProvider types = symbolAllocator.getTypes();
+        return new Plan(root, types, computeStats(root, types));
+    }
+
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)
     {
         if (explain || isPrintStatsForNonJoinQuery(session) ||
