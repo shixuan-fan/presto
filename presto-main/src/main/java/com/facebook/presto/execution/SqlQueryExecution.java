@@ -58,6 +58,7 @@ import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.rewrite.ExplainRewrite;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
@@ -124,6 +125,9 @@ public class SqlQueryExecution
     private final Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final QueryExplainer queryExplainer;
+    private final PreparedQuery preparedQuery;
+    private final AccessControl accessControl;
 
     private SqlQueryExecution(
             String query,
@@ -174,6 +178,8 @@ public class SqlQueryExecution
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
+            this.accessControl = accessControl;
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -204,6 +210,7 @@ public class SqlQueryExecution
                     Optional.of(queryExplainer),
                     preparedQuery.getParameters(),
                     warningCollector);
+            this.preparedQuery = preparedQuery;
 
             try {
                 this.analysis = analyzer.analyze(preparedQuery.getStatement());
@@ -420,6 +427,7 @@ public class SqlQueryExecution
         stateMachine.beginAnalysis();
 
         // plan query
+        new ExplainRewrite().rewrite(getSession(), metadata, sqlParser, Optional.of(queryExplainer), preparedQuery.getStatement(), preparedQuery.getParameters(), accessControl, stateMachine.getWarningCollector());
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector());
         Plan plan = logicalPlanner.plan(analysis);

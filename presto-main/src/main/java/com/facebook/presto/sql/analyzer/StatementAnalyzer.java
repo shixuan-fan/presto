@@ -730,13 +730,20 @@ class StatementAnalyzer
         protected Scope visitExplain(Explain node, Optional<Scope> scope)
                 throws SemanticException
         {
-            checkState(node.isAnalyze(), "Non analyze explain should be rewritten to Query");
-            if (node.getOptions().stream().anyMatch(option -> !option.equals(new ExplainType(DISTRIBUTED)))) {
-                throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
+            // checkState(node.isAnalyze(), "Non analyze explain should be rewritten to Query");
+            if (node.isAnalyze()) {
+                if (node.getOptions().stream().anyMatch(option -> !option.equals(new ExplainType(DISTRIBUTED)))) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
+                }
+                process(node.getStatement(), scope);
+                analysis.setUpdateType(null);
+                return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
             }
-            process(node.getStatement(), scope);
-            analysis.setUpdateType(null);
-            return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
+            else {
+                process(node.getStatement(), scope);
+                analysis.setUpdateType(null);
+                return createAndAssignScope(node, scope, Field.newUnqualified("Query Plan", VARCHAR));
+            }
         }
 
         @Override

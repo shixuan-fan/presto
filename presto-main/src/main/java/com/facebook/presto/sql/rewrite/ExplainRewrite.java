@@ -42,7 +42,7 @@ import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.facebook.presto.sql.tree.ExplainType.Type.VALIDATE;
 import static java.util.Objects.requireNonNull;
 
-final class ExplainRewrite
+public final class ExplainRewrite
         implements StatementRewrite.Rewrite
 {
     @Override
