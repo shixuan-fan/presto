@@ -56,7 +56,7 @@ public interface OrcDataSource
 
     default boolean useCache()
     {
-        return false;
+        return true;
     }
 
     // Returns a string identifying the table/partition for access tracking.

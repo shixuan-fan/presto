@@ -51,7 +51,7 @@ public class HdfsOrcDataSource
         super(id, size, maxMergeDistance, maxReadSize, streamBufferSize, lazyReadSmallRanges);
         this.inputStream = requireNonNull(inputStream, "inputStream is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.useCache = useCache;
+        this.useCache = true;
         this.splitLabel = splitLabel;
     }
 
