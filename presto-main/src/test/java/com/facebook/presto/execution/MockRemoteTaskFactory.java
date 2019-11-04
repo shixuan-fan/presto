@@ -59,6 +59,7 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.ws.rs.HEAD;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -154,7 +155,7 @@ public class MockRemoteTaskFactory
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
-        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, partitionedSplitCountTracker);
+        return new MockRemoteTask(taskId, session, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, partitionedSplitCountTracker);
     }
 
     public static final class MockRemoteTask
@@ -183,8 +184,10 @@ public class MockRemoteTaskFactory
         private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
+        private final Session session;
 
         public MockRemoteTask(TaskId taskId,
+                Session session,
                 PlanFragment fragment,
                 String nodeId,
                 Executor executor,
@@ -208,7 +211,7 @@ public class MockRemoteTaskFactory
             this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, false);
 
             this.location = URI.create("fake://task/" + taskId);
-
+            this.session = session;
             this.outputBuffer = new LazyOutputBuffer(
                     taskId,
                     TASK_INSTANCE_ID,
@@ -267,6 +270,7 @@ public class MockRemoteTaskFactory
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),
+                    Optional.of(session.getSessionLogger().getEntries()),
                     true);
         }
 

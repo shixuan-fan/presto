@@ -208,6 +208,8 @@ public class SqlQueryScheduler
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
 
+        session.getSessionLogger().log(() -> "creating private sql query scheduler with plan");
+
         OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         sectionedPlan = extractStreamingSections(plan);
         List<StageExecutionAndScheduler> stageExecutions = createStageExecutions(
@@ -707,6 +709,7 @@ public class SqlQueryScheduler
 
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
             Set<StageId> completedStages = new HashSet<>();
+            queryStateMachine.getSession().getSessionLogger().log(() -> "sql query scheduler schedule");
 
             List<ExecutionSchedule> sectionExecutionSchedules = new LinkedList<>();
 

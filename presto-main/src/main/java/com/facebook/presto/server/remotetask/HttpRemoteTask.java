@@ -268,7 +268,7 @@ public final class HttpRemoteTask
                     .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
                     .collect(toImmutableList());
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(session, taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::failTask,
@@ -280,7 +280,8 @@ public final class HttpRemoteTask
                     maxErrorDuration,
                     errorScheduledExecutor,
                     stats,
-                    isBinaryTransportEnabled);
+                    isBinaryTransportEnabled,
+                    session);
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
@@ -310,6 +311,7 @@ public final class HttpRemoteTask
 
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
+            session.getSessionLogger().log(() -> String.format("remote task %s created", taskId));
         }
     }
 
@@ -346,6 +348,7 @@ public final class HttpRemoteTask
 
             taskStatusFetcher.start();
             taskInfoFetcher.start();
+            session.getSessionLogger().log(() -> String.format("started task %s", taskId));
         }
     }
 
@@ -610,6 +613,8 @@ public final class HttpRemoteTask
         if (this.currentRequest != null && !this.currentRequest.isDone()) {
             return;
         }
+
+        session.getSessionLogger().log(() -> String.format("sending update to task %s", taskId));
 
         // if throttled due to error, asynchronously wait for timeout and try again
         ListenableFuture<?> errorRateLimit = updateErrorTracker.acquireRequestPermit();
@@ -912,6 +917,7 @@ public final class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
+                    session.getSessionLogger().log(() -> String.format("task %s updated", taskId));
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;

@@ -202,4 +202,10 @@ public class PrestoSparkSessionContext
     {
         return false;
     }
+
+    @Override
+    public int getQueryLoggingSize()
+    {
+        return 0;
+    }
 }
