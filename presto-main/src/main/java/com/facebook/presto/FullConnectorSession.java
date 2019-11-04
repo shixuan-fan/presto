@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Locale;
@@ -130,6 +131,12 @@ public class FullConnectorSession
         }
 
         return sessionPropertyManager.decodeCatalogPropertyValue(connectorId, catalog, propertyName, properties.get(propertyName), type);
+    }
+
+    @Override
+    public SessionLogger getSessionLogger()
+    {
+        return session.getSessionLogger();
     }
 
     @Override

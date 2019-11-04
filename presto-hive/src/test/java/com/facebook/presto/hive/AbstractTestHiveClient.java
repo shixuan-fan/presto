@@ -92,6 +92,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.type.ArrayType;
@@ -1045,6 +1046,11 @@ public abstract class AbstractTestHiveClient
             }
 
             @Override
+            public SessionLogger getSessionLogger()
+            {
+                return session.getSessionLogger();
+            }
+
             public SqlFunctionProperties getSqlFunctionProperties()
             {
                 return session.getSqlFunctionProperties();

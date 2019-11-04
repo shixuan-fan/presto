@@ -553,6 +553,7 @@ public final class SqlStageExecution
                 return;
             }
 
+            session.getSessionLogger().log(() -> String.format("In stage %s, Updating task %s to %s", getStageExecutionId(), taskStatus.getTaskId(), taskStatus.getState()));
             TaskState taskState = taskStatus.getState();
             if (taskState == TaskState.FAILED) {
                 // no matter if it is possible to recover - the task is failed
@@ -595,6 +596,7 @@ public final class SqlStageExecution
                     stateMachine.transitionToRunning();
                 }
                 if (finishedTasks.size() == allTasks.size()) {
+                    session.getSessionLogger().log(() -> "finishing stage " + getStageExecutionId());
                     stateMachine.transitionToFinished();
                 }
             }

@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.facebook.presto.spi.session.SessionLogger;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -39,6 +40,8 @@ public interface ConnectorSession
     Optional<String> getClientInfo();
 
     long getStartTime();
+
+    SessionLogger getSessionLogger();
 
     SqlFunctionProperties getSqlFunctionProperties();
 

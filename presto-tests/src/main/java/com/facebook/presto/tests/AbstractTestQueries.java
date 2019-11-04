@@ -5013,6 +5013,7 @@ public abstract class AbstractTestQueries
                         .put("connector_long", "11")
                         .build()),
                 getQueryRunner().getMetadata().getSessionPropertyManager(),
+                getSession().getQueryLoggingSize(),
                 getSession().getPreparedStatements());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 

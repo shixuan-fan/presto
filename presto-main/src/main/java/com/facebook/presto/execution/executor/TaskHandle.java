@@ -15,6 +15,7 @@ package com.facebook.presto.execution.executor;
 
 import com.facebook.presto.execution.SplitConcurrencyController;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.spi.session.SessionLogger;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
@@ -40,6 +41,7 @@ public class TaskHandle
     private final DoubleSupplier utilizationSupplier;
     private final TaskPriorityTracker priorityTracker;
     private final OptionalInt maxDriversPerTask;
+    private final SessionLogger sessionLogger;
 
     @GuardedBy("this")
     protected final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
@@ -60,7 +62,8 @@ public class TaskHandle
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
-            OptionalInt maxDriversPerTask)
+            OptionalInt maxDriversPerTask,
+            SessionLogger sessionLogger)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.utilizationSupplier = requireNonNull(utilizationSupplier, "utilizationSupplier is null");
@@ -69,6 +72,7 @@ public class TaskHandle
         this.concurrencyController = new SplitConcurrencyController(
                 initialSplitConcurrency,
                 requireNonNull(splitConcurrencyAdjustFrequency, "splitConcurrencyAdjustFrequency is null"));
+        this.sessionLogger = sessionLogger;
     }
 
     public synchronized Priority addScheduledNanos(long durationNanos)
@@ -174,5 +178,10 @@ public class TaskHandle
         return toStringHelper(this)
                 .add("taskId", taskId)
                 .toString();
+    }
+
+    public SessionLogger getSessionLogger()
+    {
+        return sessionLogger;
     }
 }
