@@ -350,6 +350,7 @@ public class SqlQueryExecution
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
+                getSession().getSessionLogger().log(() -> "starting query");
                 // transition to planning
                 if (!stateMachine.transitionToPlanning()) {
                     // query already started or finished
@@ -358,11 +359,13 @@ public class SqlQueryExecution
 
                 // analyze query
                 PlanRoot plan = analyzeQuery();
+                getSession().getSessionLogger().log(() -> "done planning");
 
                 metadata.beginQuery(getSession(), plan.getConnectors());
 
                 // plan distribution of query
                 planDistribution(plan);
+                getSession().getSessionLogger().log(() -> "done plan distribution");
 
                 // transition to starting
                 if (!stateMachine.transitionToStarting()) {

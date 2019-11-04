@@ -250,6 +250,8 @@ public class PinotBrokerPageSource
             List<BlockBuilder> blockBuilders,
             List<Type> types)
     {
+        session.getSessionLogger().log(() -> "Pql Issue Start");
+
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), (retryNumber) -> {
             String queryHost;
             Optional<String> rpcService;
@@ -266,7 +268,13 @@ public class PinotBrokerPageSource
                     .setUri(URI.create(String.format(QUERY_URL_TEMPLATE, queryHost)));
             String body = clusterInfoFetcher.doHttpActionWithHeaders(builder, Optional.of(String.format(REQUEST_PAYLOAD_TEMPLATE, pql)), rpcService);
 
-            return populateFromPqlResults(pql, numGroupByClause, blockBuilders, types, body);
+            session.getSessionLogger().log(() -> "Pql Issue End");
+
+            int rowCount = populateFromPqlResults(pql, numGroupByClause, blockBuilders, types, body);
+
+            session.getSessionLogger().log(() -> "Pql JSON Parsed");
+
+            return rowCount;
         });
     }
 
