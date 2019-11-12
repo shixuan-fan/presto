@@ -152,6 +152,12 @@ public class RaptorSplit
     }
 
     @Override
+    public int getHash()
+    {
+        return shardUuids.hashCode();
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

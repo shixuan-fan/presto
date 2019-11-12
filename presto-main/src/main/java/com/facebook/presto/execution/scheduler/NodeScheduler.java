@@ -136,22 +136,32 @@ public class NodeScheduler
         Supplier<NodeMap> nodeMap = nodeMapRefreshInterval.toMillis() > 0 ?
                 memoizeWithExpiration(createNodeMapSupplier(connectorId), nodeMapRefreshInterval.toMillis(), MILLISECONDS) : createNodeMapSupplier(connectorId);
 
-        if (useNetworkTopology) {
-            return new TopologyAwareNodeSelector(
-                    nodeManager,
-                    nodeTaskMap,
-                    includeCoordinator,
-                    nodeMap,
-                    minCandidates,
-                    maxSplitsPerNode,
-                    maxPendingSplitsPerTask,
-                    topologicalSplitCounters,
-                    networkLocationSegmentNames,
-                    networkLocationCache);
-        }
-        else {
-            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
-        }
+        return new SoftAffinityNodeSelector(nodeManager,
+                nodeTaskMap,
+                includeCoordinator,
+                nodeMap,
+                minCandidates,
+                maxSplitsPerNode,
+                maxPendingSplitsPerTask,
+                topologicalSplitCounters,
+                networkLocationSegmentNames,
+                networkLocationCache);
+//        if (useNetworkTopology) {
+//            return new TopologyAwareNodeSelector(
+//                    nodeManager,
+//                    nodeTaskMap,
+//                    includeCoordinator,
+//                    nodeMap,
+//                    minCandidates,
+//                    maxSplitsPerNode,
+//                    maxPendingSplitsPerTask,
+//                    topologicalSplitCounters,
+//                    networkLocationSegmentNames,
+//                    networkLocationCache);
+//        }
+//        else {
+//            return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
+//        }
     }
 
     private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId)
