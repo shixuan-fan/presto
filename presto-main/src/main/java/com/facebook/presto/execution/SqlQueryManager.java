@@ -335,13 +335,17 @@ public class SqlQueryManager
 
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext);
+            session.getSessionLogger().log(() -> "create query");
 
             WarningCollector warningCollector = warningCollectorFactory.create();
 
             // prepare query
+            session.getSessionLogger().log(() -> "prepare query begins");
             preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
+            session.getSessionLogger().log(() -> "prepare query ends");
 
             // select resource group
+            session.getSessionLogger().log(() -> "select resource group begins");
             queryType = getQueryType(preparedQuery.getStatement().getClass());
             selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
@@ -350,6 +354,7 @@ public class SqlQueryManager
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
                     queryType.map(Enum::name)));
+            session.getSessionLogger().log(() -> "select resource group ends");
 
             // apply system defaults for query
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), selectionContext.getResourceGroupId());
@@ -362,6 +367,7 @@ public class SqlQueryManager
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
+            session.getSessionLogger().log(() -> "create query execution starts");
             queryExecution = queryExecutionFactory.createQueryExecution(
                     query,
                     session,
@@ -369,6 +375,7 @@ public class SqlQueryManager
                     selectionContext.getResourceGroupId(),
                     warningCollector,
                     queryType);
+            session.getSessionLogger().log(() -> "create query execution ends");
         }
         catch (RuntimeException e) {
             // This is intentionally not a method, since after the state change listener is registered

@@ -164,6 +164,7 @@ public class BackgroundHiveSplitLoader
     @Override
     public void start(HiveSplitSource splitSource)
     {
+        session.getSessionLogger().log(() -> format("Split loading for table %S started", table.getTableName()));
         this.hiveSplitSource = splitSource;
         for (int i = 0; i < loaderConcurrency; i++) {
             ResumableTasks.submit(executor, new HiveSplitLoaderTask());
@@ -173,6 +174,7 @@ public class BackgroundHiveSplitLoader
     @Override
     public void stop()
     {
+        session.getSessionLogger().log(() -> format("Split loading for table %S stopped", table.getTableName()));
         stopped = true;
     }
 
