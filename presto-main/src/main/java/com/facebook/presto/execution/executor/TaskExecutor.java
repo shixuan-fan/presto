@@ -427,7 +427,7 @@ public class TaskExecutor
     private synchronized void startSplit(PrioritizedSplitRunner split)
     {
         allSplits.add(split);
-        split.getTaskHandle().getSessionLogger().log(() -> "offering split " + split);
+        split.getTaskHandle().getSessionLogger().log(() -> "starting split " + split);
         waitingSplits.offer(split);
     }
 
