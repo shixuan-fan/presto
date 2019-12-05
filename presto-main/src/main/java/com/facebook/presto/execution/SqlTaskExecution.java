@@ -547,7 +547,6 @@ public class SqlTaskExecution
 
     private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
     {
-        getTaskContext().getSession().getSessionLogger().log(() -> String.format("enqueue driver split runner force run split %s with %d runners", forceRunSplit, runners.size()));
         // schedule driver to be executed
         List<ListenableFuture<?>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
         checkState(finishedFutures.size() == runners.size(), "Expected %s futures but got %s", runners.size(), finishedFutures.size());
