@@ -311,7 +311,7 @@ public final class HttpRemoteTask
 
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
-            session.getSessionLogger().log(() -> String.format("remote task %s created", taskId));
+//            session.getSessionLogger().log(() -> String.format("remote task %s created", taskId));
         }
     }
 
@@ -348,7 +348,7 @@ public final class HttpRemoteTask
 
             taskStatusFetcher.start();
             taskInfoFetcher.start();
-            session.getSessionLogger().log(() -> String.format("started task %s", taskId));
+//            session.getSessionLogger().log(() -> String.format("started task %s", taskId));
         }
     }
 
@@ -614,7 +614,7 @@ public final class HttpRemoteTask
             return;
         }
 
-        session.getSessionLogger().log(() -> String.format("sending update to task %s", taskId));
+//        session.getSessionLogger().log(() -> String.format("sending update to task %s", taskId));
 
         // if throttled due to error, asynchronously wait for timeout and try again
         ListenableFuture<?> errorRateLimit = updateErrorTracker.acquireRequestPermit();
@@ -917,7 +917,7 @@ public final class HttpRemoteTask
         {
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
-                    session.getSessionLogger().log(() -> String.format("task %s updated", taskId));
+//                    session.getSessionLogger().log(() -> String.format("task %s updated", taskId));
                     long currentRequestStartNanos;
                     synchronized (HttpRemoteTask.this) {
                         currentRequest = null;
