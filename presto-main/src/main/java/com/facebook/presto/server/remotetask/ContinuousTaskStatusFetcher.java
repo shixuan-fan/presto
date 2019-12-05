@@ -153,7 +153,7 @@ class ContinuousTaskStatusFetcher
             return;
         }
 
-        session.getSessionLogger().log(() -> String.format("scheduling new task status fetch call %s", taskId));
+//        session.getSessionLogger().log(() -> String.format("scheduling new task status fetch call %s", taskId));
         Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
                 .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
                 .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
@@ -247,7 +247,7 @@ class ContinuousTaskStatusFetcher
                 // don't update to an older version (same version is ok)
                 return false;
             }
-            session.getSessionLogger().log(() -> String.format("updated task status %s to state %s", taskId, newValue.getState()));
+//            session.getSessionLogger().log(() -> String.format("updated task status %s to state %s", taskId, newValue.getState()));
             return true;
         });
 
