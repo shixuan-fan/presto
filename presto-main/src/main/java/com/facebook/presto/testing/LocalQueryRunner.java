@@ -443,7 +443,8 @@ public class LocalQueryRunner
                 defaultSession.getUnprocessedCatalogProperties(),
                 metadata.getSessionPropertyManager(),
                 defaultSession.getQueryLoggingSize(),
-                defaultSession.getPreparedStatements());
+                defaultSession.getPreparedStatements(),
+                Optional.empty());
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())

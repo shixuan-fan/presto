@@ -110,7 +110,8 @@ public final class Session
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             int queryLoggingSize,
-            Map<String, String> preparedStatements)
+            Map<String, String> preparedStatements,
+            Optional<SessionLogger> sessionLogger)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -379,10 +380,11 @@ public final class Session
                 ImmutableMap.of(),
                 sessionPropertyManager,
                 queryLoggingSize,
-                preparedStatements);
+                preparedStatements,
+                Optional.of(sessionLogger));
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, SessionLogger sessionLogger)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
@@ -429,7 +431,8 @@ public final class Session
                 connectorProperties,
                 sessionPropertyManager,
                 queryLoggingSize,
-                preparedStatements);
+                preparedStatements,
+                Optional.of(sessionLogger));
     }
 
     public ConnectorSession toConnectorSession()
@@ -747,7 +750,8 @@ public final class Session
                     catalogSessionProperties,
                     sessionPropertyManager,
                     queryLoggingSize,
-                    preparedStatements);
+                    preparedStatements,
+                    Optional.empty());
         }
     }
 
