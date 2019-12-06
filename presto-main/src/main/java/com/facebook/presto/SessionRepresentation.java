@@ -289,6 +289,7 @@ public final class SessionRepresentation
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
                 queryLoggingSize,
-                preparedStatements);
+                preparedStatements,
+                Optional.empty());
     }
 }
