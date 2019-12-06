@@ -105,7 +105,8 @@ public final class Session
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             int queryLoggingSize,
-            Map<String, String> preparedStatements)
+            Map<String, String> preparedStatements,
+            Optional<SessionLogger> sessionLogger)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -143,7 +144,7 @@ public final class Session
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
-        this.sessionLogger = new SizeLimitedSessionLogger(this.queryId, this.queryLoggingSize);
+        this.sessionLogger = sessionLogger.orElse(new SizeLimitedSessionLogger(this.queryId, this.queryLoggingSize));
     }
 
     public QueryId getQueryId()
@@ -363,10 +364,11 @@ public final class Session
                 ImmutableMap.of(),
                 sessionPropertyManager,
                 queryLoggingSize,
-                preparedStatements);
+                preparedStatements,
+                Optional.of(sessionLogger));
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, SessionLogger sessionLogger)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
@@ -413,7 +415,8 @@ public final class Session
                 connectorProperties,
                 sessionPropertyManager,
                 queryLoggingSize,
-                preparedStatements);
+                preparedStatements,
+                Optional.of(sessionLogger));
     }
 
     public ConnectorSession toConnectorSession()
@@ -727,7 +730,8 @@ public final class Session
                     catalogSessionProperties,
                     sessionPropertyManager,
                     queryLoggingSize,
-                    preparedStatements);
+                    preparedStatements,
+                    Optional.empty());
         }
     }
 
