@@ -74,11 +74,16 @@ public class Analyzer
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, accessControl, warningCollector);
+
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+
+        session.getSessionLogger().log(() -> "analyze rewritten statement begins");
         analyzer.analyze(rewrittenStatement, Optional.empty());
+        session.getSessionLogger().log(() -> "analyze rewritten statement ends");
 
         // check column access permissions for each table
+        session.getSessionLogger().log(() -> "column access permission check begins");
         analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
@@ -86,6 +91,7 @@ public class Analyzer
                                 accessControlInfo.getIdentity(),
                                 tableName,
                                 columns)));
+        session.getSessionLogger().log(() -> "column access permission check ends");
         return analysis;
     }
 
