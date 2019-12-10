@@ -376,19 +376,25 @@ public class SqlQueryExecution
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector());
+        getSession().getSessionLogger().log(() -> "logical planner starts");
         Plan plan = logicalPlanner.plan(analysis);
+        getSession().getSessionLogger().log(() -> "logical planner ends");
         queryPlan.set(plan);
 
         // extract inputs
+        getSession().getSessionLogger().log(() -> "input extraction starts");
         List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
         stateMachine.setInputs(inputs);
+        getSession().getSessionLogger().log(() -> "input extraction ends");
 
         // extract output
         Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
         stateMachine.setOutput(output);
 
         // fragment the plan
+        getSession().getSessionLogger().log(() -> "plan fragmentation starts");
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, stateMachine.getWarningCollector());
+        getSession().getSessionLogger().log(() -> "plan fragmentation ends");
 
         // record analysis time
         stateMachine.endAnalysis();
