@@ -32,11 +32,13 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -48,6 +50,8 @@ public class Analyzer
     private final Optional<QueryExplainer> queryExplainer;
     private final List<Expression> parameters;
     private final WarningCollector warningCollector;
+
+    public static final AtomicLong METADATA_NANOS = new AtomicLong();
 
     public Analyzer(Session session,
             Metadata metadata,
@@ -68,7 +72,10 @@ public class Analyzer
 
     public Analysis analyze(Statement statement)
     {
-        return analyze(statement, false);
+        Analysis analysis = analyze(statement, false);
+        session.getSessionLogger().log(() -> format("metadata call took %s seconds", METADATA_NANOS.get() * 1.0 / 1_000_000_000));
+        METADATA_NANOS.set(0);
+        return analysis;
     }
 
     public Analysis analyze(Statement statement, boolean isDescribe)
