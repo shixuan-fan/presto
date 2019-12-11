@@ -16,6 +16,8 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.AnalyzePropertyManager;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -38,6 +40,8 @@ import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
 import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -162,6 +166,7 @@ import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
+import static com.facebook.presto.sql.analyzer.Analyzer.METADATA_NANOS;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -228,8 +233,99 @@ import static java.util.stream.Collectors.groupingBy;
 
 class StatementAnalyzer
 {
+    private class TrackingMetadata
+    {
+        private final Metadata delegate;
+
+        private TrackingMetadata(Metadata metadata)
+        {
+            this.delegate = metadata;
+        }
+
+        Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+        {
+            long start = System.nanoTime();
+            Optional<ViewDefinition> result = delegate.getView(session, viewName);
+            METADATA_NANOS.addAndGet(System.nanoTime() - start);
+            return result;
+        }
+
+        Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
+        {
+            long start = System.nanoTime();
+            Optional<TableHandle> result = delegate.getTableHandle(session, tableName);
+            METADATA_NANOS.addAndGet(System.nanoTime() - start);
+            return result;
+        }
+
+        TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
+        {
+            long start = System.nanoTime();
+            TableMetadata result = delegate.getTableMetadata(session, tableHandle);
+            METADATA_NANOS.addAndGet(System.nanoTime() - start);
+            return result;
+        }
+
+        Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
+        {
+            long start = System.nanoTime();
+            Map<String, ColumnHandle> result = delegate.getColumnHandles(session, tableHandle);
+            METADATA_NANOS.addAndGet(System.nanoTime() - start);
+            return result;
+        }
+
+        Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
+        {
+            long start = System.nanoTime();
+            Optional<ConnectorId> result = delegate.getCatalogHandle(session, catalogName);
+            METADATA_NANOS.addAndGet(System.nanoTime() - start);
+            return result;
+        }
+
+        Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties)
+        {
+            long start = System.nanoTime();
+            Optional<TableHandle> result = delegate.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties);
+            METADATA_NANOS.addAndGet(System.nanoTime() - start);
+            return result;
+        }
+
+        boolean schemaExists(Session session, CatalogSchemaName schema)
+        {
+            long start = System.nanoTime();
+            boolean result = delegate.schemaExists(session, schema);
+            METADATA_NANOS.addAndGet(System.nanoTime() - start);
+            return result;
+        }
+
+        Type getType(TypeSignature signature)
+        {
+            return delegate.getType(signature);
+        }
+
+        TypeManager getTypeManager()
+        {
+            return delegate.getTypeManager();
+        }
+
+        public Metadata getDelegate()
+        {
+            return delegate;
+        }
+
+        public AnalyzePropertyManager getAnalyzePropertyManager()
+        {
+            return delegate.getAnalyzePropertyManager();
+        }
+
+        public FunctionManager getFunctionManager()
+        {
+            return delegate.getFunctionManager();
+        }
+    }
+
     private final Analysis analysis;
-    private final Metadata metadata;
+    private final TrackingMetadata metadata;
     private final Session session;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
@@ -244,7 +340,7 @@ class StatementAnalyzer
             WarningCollector warningCollector)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.metadata = new TrackingMetadata(metadata);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
@@ -424,7 +520,7 @@ class StatementAnalyzer
             // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
             StatementAnalyzer analyzer = new StatementAnalyzer(
                     analysis,
-                    metadata,
+                    metadata.getDelegate(),
                     sqlParser,
                     new AllowAllAccessControl(),
                     session,
@@ -460,7 +556,7 @@ class StatementAnalyzer
                     connectorId.getCatalogName(),
                     mapFromProperties(node.getProperties()),
                     session,
-                    metadata,
+                    metadata.getDelegate(),
                     analysis.getParameters());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
@@ -539,7 +635,7 @@ class StatementAnalyzer
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata.getDelegate(), sqlParser, accessControl, session, WarningCollector.NOOP);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -654,7 +750,7 @@ class StatementAnalyzer
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
-            createConstantAnalyzer(metadata, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
+            createConstantAnalyzer(metadata.getDelegate(), session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
@@ -866,7 +962,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata.getDelegate(), sqlParser, accessControl, session, WarningCollector.NOOP);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1051,14 +1147,14 @@ class StatementAnalyzer
 
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                     session,
-                    metadata,
+                    metadata.getDelegate(),
                     sqlParser,
                     TypeProvider.empty(),
                     relation.getSamplePercentage(),
                     analysis.getParameters(),
                     WarningCollector.NOOP,
                     analysis.isDescribe());
-            ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
+            ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata.getDelegate(), session, expressionTypes);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
@@ -1085,7 +1181,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata.getDelegate(), sqlParser, accessControl, session, WarningCollector.NOOP);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1976,11 +2072,11 @@ class StatementAnalyzer
                         .collect(toImmutableList());
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata.getDelegate(), analysis);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata.getDelegate(), analysis);
                 }
             }
         }
@@ -2000,7 +2096,7 @@ class StatementAnalyzer
                     viewAccessControl = accessControl;
                 }
 
-                Session viewSession = Session.builder(metadata.getSessionPropertyManager())
+                Session viewSession = Session.builder(metadata.getDelegate().getSessionPropertyManager())
                         .setQueryId(session.getQueryId())
                         .setTransactionId(session.getTransactionId().orElse(null))
                         .setIdentity(identity)
@@ -2015,7 +2111,7 @@ class StatementAnalyzer
                         .setStartTime(session.getStartTime())
                         .build();
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, WarningCollector.NOOP);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata.getDelegate(), sqlParser, viewAccessControl, viewSession, WarningCollector.NOOP);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -2058,7 +2154,7 @@ class StatementAnalyzer
         {
             return ExpressionAnalyzer.analyzeExpression(
                     session,
-                    metadata,
+                    metadata.getDelegate(),
                     accessControl,
                     sqlParser,
                     scope,
