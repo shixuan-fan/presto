@@ -184,6 +184,7 @@ public class LogicalPlanner
 
         planSanityChecker.validateIntermediatePlan(root, session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
 
+        session.getSessionLogger().log(() -> "query optimization begins");
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
             Set<Integer> indicesToLog = getLoggedOptimizerRuleIndices(session);
             for (int i = 0; i < planOptimizers.size(); i++) {
@@ -199,6 +200,7 @@ public class LogicalPlanner
                 }
             }
         }
+        session.getSessionLogger().log(() -> "query optimization ends");
 
         if (stage.ordinal() >= Stage.OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
