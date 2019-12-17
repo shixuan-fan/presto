@@ -171,6 +171,7 @@ public class FixedSourcePartitionedScheduler
         // schedule a task on every node in the distribution
         List<RemoteTask> newTasks = ImmutableList.of();
         if (!scheduledTasks) {
+            stage.getSession().getSessionLogger().log(() -> "task scheduling begins");
             newTasks = Streams.mapWithIndex(
                     nodes.stream(),
                     (node, id) -> stage.scheduleTask(node, toIntExact(id)))
@@ -178,6 +179,7 @@ public class FixedSourcePartitionedScheduler
                     .map(Optional::get)
                     .collect(toImmutableList());
             scheduledTasks = true;
+            stage.getSession().getSessionLogger().log(() -> "task scheduling ends");
 
             // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits
             stage.transitionToFinishedTaskScheduling();
