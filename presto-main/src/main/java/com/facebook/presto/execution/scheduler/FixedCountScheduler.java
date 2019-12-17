@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.metadata.InternalNode;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -33,12 +35,14 @@ public class FixedCountScheduler
         Optional<RemoteTask> scheduleTask(InternalNode node, int partition);
     }
 
+    private final Session session;
     private final TaskScheduler taskScheduler;
     private final List<InternalNode> partitionToNode;
 
     public FixedCountScheduler(SqlStageExecution stage, List<InternalNode> partitionToNode)
     {
         requireNonNull(stage, "stage is null");
+        this.session = stage.getSession();
         this.taskScheduler = stage::scheduleTask;
         this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
     }
@@ -46,6 +50,7 @@ public class FixedCountScheduler
     @VisibleForTesting
     public FixedCountScheduler(TaskScheduler taskScheduler, List<InternalNode> partitionToNode)
     {
+        this.session = testSessionBuilder().build();
         this.taskScheduler = requireNonNull(taskScheduler, "taskScheduler is null");
         this.partitionToNode = requireNonNull(partitionToNode, "partitionToNode is null");
     }
@@ -53,11 +58,13 @@ public class FixedCountScheduler
     @Override
     public ScheduleResult schedule()
     {
+        session.getSessionLogger().log(() -> "task scheduling begins");
         List<RemoteTask> newTasks = IntStream.range(0, partitionToNode.size())
                 .mapToObj(partition -> taskScheduler.scheduleTask(partitionToNode.get(partition), partition))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toImmutableList());
+        session.getSessionLogger().log(() -> "task scheduling ends");
 
         // no need to call stage.transitionToSchedulingSplits() since there is no table splits
 
