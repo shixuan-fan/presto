@@ -743,4 +743,9 @@ public final class SqlStageExecution
             }
         }
     }
+
+    public Session getSession()
+    {
+        return session;
+    }
 }
