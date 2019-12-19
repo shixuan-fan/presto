@@ -89,7 +89,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.getLoggedOptimizerRuleIndices;
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -183,9 +185,18 @@ public class LogicalPlanner
         planSanityChecker.validateIntermediatePlan(root, session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
-            for (PlanOptimizer optimizer : planOptimizers) {
+            Set<Integer> indicesToLog = getLoggedOptimizerRuleIndices(session);
+            for (int i = 0; i < planOptimizers.size(); i++) {
+                PlanOptimizer optimizer = planOptimizers.get(i);
+                int num = i;
+                if (indicesToLog.contains(num)) {
+                    session.getSessionLogger().log(() -> format("optimization #%s %s starts", num, optimizer.getClass().getName()));
+                }
                 root = optimizer.optimize(root, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+                if (indicesToLog.contains(num)) {
+                    session.getSessionLogger().log(() -> format("optimization #%s %s ends", num, optimizer.getClass().getName()));
+                }
             }
         }
 
