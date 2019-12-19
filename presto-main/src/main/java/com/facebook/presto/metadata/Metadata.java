@@ -446,4 +446,9 @@ public interface Metadata
     AnalyzePropertyManager getAnalyzePropertyManager();
 
     Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName);
+
+    default void logGetTable(Session session, String catalogName)
+    {
+        // no-op
+    }
 }

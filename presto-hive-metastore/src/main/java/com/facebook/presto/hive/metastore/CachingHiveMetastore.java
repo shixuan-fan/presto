@@ -750,4 +750,23 @@ public class CachingHiveMetastore
         cacheBuilder = cacheBuilder.maximumSize(maximumSize);
         return cacheBuilder;
     }
+
+
+    @Override
+    public long getGetTableCount()
+    {
+        return delegate.getGetTableCount();
+    }
+
+    @Override
+    public long getGetTableNanos()
+    {
+        return delegate.getGetTableNanos();
+    }
+
+    @Override
+    public void clearCounter()
+    {
+        delegate.clearCounter();
+    }
 }

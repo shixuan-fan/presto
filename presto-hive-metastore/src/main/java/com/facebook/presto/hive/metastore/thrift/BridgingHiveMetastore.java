@@ -353,4 +353,22 @@ public class BridgingHiveMetastore
     {
         return delegate.listTablePrivileges(databaseName, tableName, principal);
     }
+
+    @Override
+    public long getGetTableCount()
+    {
+        return delegate.getGetTableCount();
+    }
+
+    @Override
+    public long getGetTableNanos()
+    {
+        return delegate.getGetTableNanos();
+    }
+
+    @Override
+    public void clearCounter()
+    {
+        delegate.clearCounter();
+    }
 }

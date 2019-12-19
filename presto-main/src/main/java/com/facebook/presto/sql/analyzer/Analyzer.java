@@ -75,6 +75,12 @@ public class Analyzer
         Analysis analysis = analyze(statement, false);
         session.getSessionLogger().log(() -> format("metadata call took %s seconds", METADATA_NANOS.get() * 1.0 / 1_000_000_000));
         METADATA_NANOS.set(0);
+        try {
+            metadata.logGetTable(session, "prism");
+        }
+        catch (Exception e) {
+            // no-op
+        }
         return analysis;
     }
 

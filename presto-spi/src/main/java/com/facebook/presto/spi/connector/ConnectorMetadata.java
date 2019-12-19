@@ -677,4 +677,9 @@ public interface ConnectorMetadata
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support partition commit");
     }
+
+    default void logGetTable(ConnectorSession session)
+    {
+        // no-op
+    }
 }

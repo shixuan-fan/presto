@@ -2729,4 +2729,19 @@ public class SemiTransactionalHiveMetastore
     {
         void execute(ExtendedHiveMetastore delegate, HdfsEnvironment hdfsEnvironment);
     }
+
+    public long getGetTableCount()
+    {
+        return delegate.getGetTableCount();
+    }
+
+    public long getGetTableNanos()
+    {
+        return delegate.getGetTableNanos();
+    }
+
+    public void clearCounter()
+    {
+        delegate.clearCounter();
+    }
 }

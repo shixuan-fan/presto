@@ -609,4 +609,12 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.commitPartitionAsync(session, tableHandle, fragments);
         }
     }
+
+    @Override
+    public void logGetTable(ConnectorSession session)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.logGetTable(session);
+        }
+    }
 }

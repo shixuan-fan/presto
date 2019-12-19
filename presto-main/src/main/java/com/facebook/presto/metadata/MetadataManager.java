@@ -1313,4 +1313,12 @@ public class MetadataManager
     {
         return ImmutableMap.copyOf(catalogsByQueryId);
     }
+
+    public void logGetTable(Session session, String catalogName)
+    {
+        ConnectorId connectorId = new ConnectorId(catalogName);
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        metadata.logGetTable(session.toConnectorSession(connectorId));
+    }
 }

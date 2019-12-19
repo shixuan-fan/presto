@@ -2767,4 +2767,11 @@ public class HiveMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName().substring(0, tableName.getTableName().length() - PARTITIONS_TABLE_SUFFIX.length()));
     }
+
+    public void logGetTable(ConnectorSession session)
+    {
+        session.getSessionLogger().log(() -> format("getTable count: %s", metastore.getGetTableCount()));
+        session.getSessionLogger().log(() -> format("getTable seconds: %s", metastore.getGetTableNanos() * 1.0 / 1_000_000_000));
+        metastore.clearCounter();
+    }
 }

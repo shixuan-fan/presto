@@ -126,4 +126,19 @@ public interface HiveMetastore
 
         return Optional.of(table.get().getSd().getCols());
     }
+
+    default long getGetTableCount()
+    {
+        return 0;
+    }
+
+    default long getGetTableNanos()
+    {
+        return 0;
+    }
+
+    default void clearCounter()
+    {
+        // no-op
+    }
 }
