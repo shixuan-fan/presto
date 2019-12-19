@@ -24,7 +24,9 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMe
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
@@ -33,6 +35,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -49,6 +52,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionTy
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -138,6 +142,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
     public static final String LIST_BUILT_IN_FUNCTIONS_ONLY = "list_built_in_functions_only";
+    public static final String LOGGED_OPTIMIZER_RULE_INDICES = "logged_optimizer_rule_indices";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -684,6 +689,12 @@ public final class SystemSessionProperties
                         LIST_BUILT_IN_FUNCTIONS_ONLY,
                         "Only List built-in functions in SHOW FUNCTIONS",
                         featuresConfig.isListBuiltInFunctionsOnly(),
+                        false),
+
+                stringProperty(
+                        LOGGED_OPTIMIZER_RULE_INDICES,
+                        "The indices of optimizer rule that we want to log",
+                        "20",
                         false));
     }
 
@@ -1163,5 +1174,12 @@ public final class SystemSessionProperties
     public static boolean isListBuiltInFunctionsOnly(Session session)
     {
         return session.getSystemProperty(LIST_BUILT_IN_FUNCTIONS_ONLY, Boolean.class);
+    }
+
+    public static Set<Integer> getLoggedOptimizerRuleIndices(Session session)
+    {
+        return ImmutableSet.copyOf(Splitter.on(',').trimResults().omitEmptyStrings().split(session.getSystemProperty(LOGGED_OPTIMIZER_RULE_INDICES, String.class))).stream()
+                .map(Integer::valueOf)
+                .collect(toImmutableSet());
     }
 }
