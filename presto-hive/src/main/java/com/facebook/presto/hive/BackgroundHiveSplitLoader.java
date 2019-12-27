@@ -269,7 +269,10 @@ public class BackgroundHiveSplitLoader
             if (partition == null) {
                 return COMPLETED_FUTURE;
             }
-            return loadPartition(partition);
+            session.getSessionLogger().log(() -> "partition loading begins");
+            ListenableFuture<?> listenableFuture = loadPartition(partition);
+            session.getSessionLogger().log(() -> "partition loading ends");
+            return listenableFuture;
         }
 
         while (splits.hasNext() && !stopped) {
@@ -458,7 +461,9 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
+            session.getSessionLogger().log(() -> "directory list starts");
             Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, FAIL, pathFilter));
+            session.getSessionLogger().log(() -> "directory list ends");
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
