@@ -144,7 +144,7 @@ public final class Session
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
-        this.sessionLogger = this.queryLoggingSize > 0 ? new SizeLimitedSessionLogger(this.queryId, this.queryLoggingSize) : SessionLogger.NOOP;
+        this.sessionLogger = new SizeLimitedSessionLogger(this.queryId, this.queryLoggingSize);
     }
 
     public QueryId getQueryId()

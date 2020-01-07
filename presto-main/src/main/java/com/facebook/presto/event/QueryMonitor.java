@@ -178,6 +178,7 @@ public class QueryMonitor
                 ImmutableList.of(),
                 queryInfo.getQueryType(),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis())));
@@ -200,6 +201,7 @@ public class QueryMonitor
                         queryInfo.getFailedTasks().orElse(ImmutableList.of()).stream()
                                 .map(TaskId::toString)
                                 .collect(toImmutableList()),
+                        queryInfo.getSessionLogEntries().map(ImmutableList::copyOf).orElse(ImmutableList.of()),
                         ofEpochMilli(queryStats.getCreateTime().getMillis()),
                         ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
                         ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)));
