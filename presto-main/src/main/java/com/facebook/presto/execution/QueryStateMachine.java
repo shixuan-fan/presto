@@ -979,7 +979,7 @@ public class QueryStateMachine
     {
         QueryInfo queryInfo = getQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
-            session.getSessionLogger().log(() -> "Marking query finally done");
+            session.getSessionLogger().log(() -> "Query finished");
             queryInfo.setSessionLogEntries(session.getSessionLogger().getEntries());
             finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
         }
