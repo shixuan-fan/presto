@@ -42,6 +42,7 @@ public class QuerySessionSupplier
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
     private final Optional<TimeZoneKey> forcedSessionTimeZone;
+    private final int queryLoggingSize;
 
     @Inject
     public QuerySessionSupplier(
@@ -55,6 +56,7 @@ public class QuerySessionSupplier
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         requireNonNull(config, "config is null");
         this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
+        this.queryLoggingSize = config.getQueryLoggingSize();
     }
 
     @Override
@@ -74,7 +76,7 @@ public class QuerySessionSupplier
                 .setClientInfo(context.getClientInfo())
                 .setClientTags(context.getClientTags())
                 .setTraceToken(context.getTraceToken())
-                .setQueryLoggingSize(context.getQueryLoggingSize())
+                .setQueryLoggingSize(queryLoggingSize)
                 .setResourceEstimates(context.getResourceEstimates());
 
         if (forcedSessionTimeZone.isPresent()) {
