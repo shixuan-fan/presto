@@ -176,10 +176,13 @@ public class DispatchManager
 
             // decode session
             session = sessionSupplier.createSession(queryId, sessionContext);
+            session.getSessionLogger().log(() -> "create query");
 
             // prepare query
             WarningCollector warningCollector = warningCollectorFactory.create();
+            session.getSessionLogger().log(() -> "prepare query begins");
             preparedQuery = queryPreparer.prepareQuery(session, query, warningCollector);
+            session.getSessionLogger().log(() -> "prepare query ends");
 
             // select resource group
             Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());

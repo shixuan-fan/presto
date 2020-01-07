@@ -220,7 +220,7 @@ public class SqlQueryScheduler
 
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
             Set<StageId> completedStages = new HashSet<>();
-            queryStateMachine.getSession().getSessionLogger().log(() -> "sql query scheduler schedule");
+            queryStateMachine.getSession().getSessionLogger().log(() -> "query schedule starts");
 
             List<ExecutionSchedule> executionSchedules = new LinkedList<>();
 

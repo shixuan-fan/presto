@@ -264,21 +264,25 @@ public final class SqlStageExecution
 
     public void beginScheduling()
     {
+        session.getSessionLogger().log(() -> format("stage %s: begin scheduling", getStageExecutionId().getStageId().getId()));
         stateMachine.transitionToScheduling();
     }
 
     public synchronized void transitionToFinishedTaskScheduling()
     {
+        session.getSessionLogger().log(() -> format("stage %s: finish task scheduling", getStageExecutionId().getStageId().getId()));
         stateMachine.transitionToFinishedTaskScheduling();
     }
 
     public synchronized void transitionToSchedulingSplits()
     {
+        session.getSessionLogger().log(() -> format("stage %s: start split scheduling", getStageExecutionId().getStageId().getId()));
         stateMachine.transitionToSchedulingSplits();
     }
 
     public synchronized void schedulingComplete()
     {
+        session.getSessionLogger().log(() -> format("stage %s: scheduling complete", getStageExecutionId().getStageId().getId()));
         if (!stateMachine.transitionToScheduled()) {
             return;
         }
@@ -595,7 +599,7 @@ public final class SqlStageExecution
                     stateMachine.transitionToRunning();
                 }
                 if (finishedTasks.size() == allTasks.size()) {
-                    session.getSessionLogger().log(() -> "finishing stage " + getStageExecutionId());
+                    session.getSessionLogger().log(() -> format("Stage %d: stage finished", getStageExecutionId().getStageId().getId()));
                     stateMachine.transitionToFinished();
                 }
             }

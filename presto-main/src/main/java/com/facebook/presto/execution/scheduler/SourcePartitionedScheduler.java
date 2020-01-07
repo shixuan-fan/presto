@@ -266,6 +266,7 @@ public class SourcePartitionedScheduler
                     scheduleGroup.state = ScheduleGroupState.SPLITS_ADDED;
                 }
                 if (state == State.INITIALIZED) {
+                    stage.getSession().getSessionLogger().log(() -> ("First split added"));
                     state = State.SPLITS_ADDED;
                 }
 
