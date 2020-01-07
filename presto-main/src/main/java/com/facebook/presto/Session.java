@@ -36,6 +36,8 @@ import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.ws.rs.HEAD;
+
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Locale;

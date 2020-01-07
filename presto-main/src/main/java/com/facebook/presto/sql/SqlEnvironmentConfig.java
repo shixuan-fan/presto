@@ -25,6 +25,7 @@ import java.util.Optional;
 public class SqlEnvironmentConfig
 {
     private Optional<TimeZoneKey> forcedSessionTimeZone = Optional.empty();
+    private int queryLoggingSize;
 
     @NotNull
     public Optional<TimeZoneKey> getForcedSessionTimeZone()
@@ -38,6 +39,19 @@ public class SqlEnvironmentConfig
     {
         this.forcedSessionTimeZone = Optional.ofNullable(timeZoneId)
                 .map(TimeZoneKey::getTimeZoneKey);
+        return this;
+    }
+
+    public int getQueryLoggingSize()
+    {
+        return queryLoggingSize;
+    }
+
+    @Config("query-logging-size")
+    @ConfigDescription("query logging size")
+    public SqlEnvironmentConfig setQueryLoggingSize(int queryLoggingSize)
+    {
+        this.queryLoggingSize = queryLoggingSize;
         return this;
     }
 }
