@@ -15,6 +15,7 @@ package com.facebook.presto.spi.eventlistener;
 
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.spi.session.SessionLogger;
 
 import java.time.Instant;
 import java.util.List;
@@ -32,6 +33,7 @@ public class QueryCompletedEvent
     private final List<PrestoWarning> warnings;
     private final Optional<QueryType> queryType;
     private final List<String> failedTasks;
+    private final List<SessionLogger.Entry> sessionLogEntries;
 
     private final Instant createTime;
     private final Instant executionStartTime;
@@ -46,6 +48,7 @@ public class QueryCompletedEvent
             List<PrestoWarning> warnings,
             Optional<QueryType> queryType,
             List<String> failedTasks,
+            List<SessionLogger.Entry> sessionLogEntries,
             Instant createTime,
             Instant executionStartTime,
             Instant endTime)
@@ -58,6 +61,7 @@ public class QueryCompletedEvent
         this.warnings = requireNonNull(warnings, "queryWarnings is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.failedTasks = requireNonNull(failedTasks, "failedTasks is null");
+        this.sessionLogEntries = requireNonNull(sessionLogEntries, "sessionLogEntries is null");
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.executionStartTime = requireNonNull(executionStartTime, "executionStartTime is null");
         this.endTime = requireNonNull(endTime, "endTime is null");
@@ -101,6 +105,11 @@ public class QueryCompletedEvent
     public List<String> getFailedTasks()
     {
         return failedTasks;
+    }
+
+    public List<SessionLogger.Entry> getSessionLogEntries()
+    {
+        return sessionLogEntries;
     }
 
     public Instant getCreateTime()
