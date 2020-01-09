@@ -507,7 +507,7 @@ public class QueryStateMachine
             totalMemoryReservation += stageExecutionStats.getTotalMemoryReservation().toBytes();
             totalScheduledTime += stageExecutionStats.getTotalScheduledTime().roundTo(MILLISECONDS);
             totalCpuTime += stageExecutionStats.getTotalCpuTime().roundTo(MILLISECONDS);
-            retriedCpuTime += computeRetriedCpuTime(stageInfo.getPreviousAttemptsExecutionInfos());
+            retriedCpuTime += computeRetriedCpuTime(stageInfo);
             totalBlockedTime += stageExecutionStats.getTotalBlockedTime().roundTo(MILLISECONDS);
             if (!stageInfo.getLatestAttemptExecutionInfo().getState().isDone()) {
                 fullyBlocked &= stageExecutionStats.isFullyBlocked();
@@ -614,11 +614,13 @@ public class QueryStateMachine
                 operatorStatsSummary.build());
     }
 
-    private static long computeRetriedCpuTime(List<StageExecutionInfo> previousAttemptsExecutionInfos)
+    private static long computeRetriedCpuTime(StageInfo stageInfo)
     {
-        return previousAttemptsExecutionInfos.stream()
+        long stageRetriedCpuTime = stageInfo.getPreviousAttemptsExecutionInfos().stream()
                 .mapToLong(executionInfo -> executionInfo.getStats().getTotalCpuTime().roundTo(MILLISECONDS))
                 .sum();
+        long taskRetriedCpuTime = stageInfo.getLatestAttemptExecutionInfo().getStats().getRetriedCpuTime().roundTo(MILLISECONDS);
+        return stageRetriedCpuTime + taskRetriedCpuTime;
     }
 
     public VersionedMemoryPoolId getMemoryPool()
