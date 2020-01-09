@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -160,7 +161,7 @@ public class MergeOperator
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
         ExchangeClient exchangeClient = closer.register(taskExchangeClientManager.createExchangeClient(operatorContext.localSystemMemoryContext()));
-        exchangeClient.addLocation(remoteSplit.getLocation(), remoteSplit.getRemoteSourceTaskId());
+        exchangeClient.addLocation(URI.create(remoteSplit.getLocation()), remoteSplit.getRemoteSourceTaskId());
         exchangeClient.noMoreLocations();
         pageProducers.add(exchangeClient.pages()
                 .map(serializedPage -> {
