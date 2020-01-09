@@ -25,6 +25,7 @@ import com.facebook.presto.split.RemoteSplit;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
+import java.net.URI;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -120,7 +121,7 @@ public class ExchangeOperator
         checkArgument(split.getConnectorId().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeClient.addLocation(remoteSplit.getLocation(), remoteSplit.getRemoteSourceTaskId());
+        exchangeClient.addLocation(URI.create(remoteSplit.getLocation()), remoteSplit.getRemoteSourceTaskId());
 
         return Optional::empty;
     }
