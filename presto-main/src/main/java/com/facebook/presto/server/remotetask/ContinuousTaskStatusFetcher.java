@@ -114,7 +114,7 @@ class ContinuousTaskStatusFetcher
             return;
         }
         running = true;
-        scheduleNextRequest();
+        executor.execute(this::scheduleNextRequest);
     }
 
     public synchronized void stop()
