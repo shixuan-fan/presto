@@ -164,6 +164,7 @@ public class PickTableLayout
         @Override
         public Result apply(FilterNode filterNode, Captures captures, Context context)
         {
+            context.getSession().getSessionLogger().log(() -> "PickTableLayoutForPredicate starts");
             TableScanNode tableScan = captures.get(TABLE_SCAN);
 
             PlanNode rewritten = pushPredicateIntoTableScan(
@@ -177,11 +178,14 @@ public class PickTableLayout
                     parser,
                     domainTranslator);
 
+            Result result;
             if (arePlansSame(filterNode, tableScan, rewritten)) {
-                return Result.empty();
+                result = Result.empty();
             }
 
-            return Result.ofPlanNode(rewritten);
+            result = Result.ofPlanNode(rewritten);
+            context.getSession().getSessionLogger().log(() -> "PickTableLayoutForPredicate ends");
+            return result;
         }
 
         private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
@@ -237,19 +241,21 @@ public class PickTableLayout
         @Override
         public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
         {
+            context.getSession().getSessionLogger().log(() -> "PickTableLayoutWithoutPredicate starts");
             TableHandle tableHandle = tableScanNode.getTable();
             if (tableHandle.getLayout().isPresent()) {
                 return Result.empty();
             }
 
             Session session = context.getSession();
+            Result result;
             if (metadata.isPushdownFilterSupported(session, tableHandle)) {
                 PushdownFilterResult pushdownFilterResult = metadata.pushdownFilter(session, tableHandle, TRUE_CONSTANT);
                 if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
                     return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
                 }
 
-                return Result.ofPlanNode(new TableScanNode(
+                result = Result.ofPlanNode(new TableScanNode(
                         tableScanNode.getId(),
                         pushdownFilterResult.getLayout().getNewTableHandle(),
                         tableScanNode.getOutputVariables(),
@@ -257,26 +263,30 @@ public class PickTableLayout
                         pushdownFilterResult.getLayout().getPredicate(),
                         TupleDomain.all()));
             }
+            else {
+                TableLayoutResult layout = metadata.getLayout(
+                        session,
+                        tableHandle,
+                        Constraint.alwaysTrue(),
+                        Optional.of(tableScanNode.getOutputVariables().stream()
+                                .map(variable -> tableScanNode.getAssignments().get(variable))
+                                .collect(toImmutableSet())));
 
-            TableLayoutResult layout = metadata.getLayout(
-                    session,
-                    tableHandle,
-                    Constraint.alwaysTrue(),
-                    Optional.of(tableScanNode.getOutputVariables().stream()
-                            .map(variable -> tableScanNode.getAssignments().get(variable))
-                            .collect(toImmutableSet())));
+                if (layout.getLayout().getPredicate().isNone()) {
+                    result = Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
+                }
 
-            if (layout.getLayout().getPredicate().isNone()) {
-                return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputVariables(), ImmutableList.of()));
+                result = Result.ofPlanNode(new TableScanNode(
+                        tableScanNode.getId(),
+                        layout.getLayout().getNewTableHandle(),
+                        tableScanNode.getOutputVariables(),
+                        tableScanNode.getAssignments(),
+                        layout.getLayout().getPredicate(),
+                        TupleDomain.all()));
             }
 
-            return Result.ofPlanNode(new TableScanNode(
-                    tableScanNode.getId(),
-                    layout.getLayout().getNewTableHandle(),
-                    tableScanNode.getOutputVariables(),
-                    tableScanNode.getAssignments(),
-                    layout.getLayout().getPredicate(),
-                    TupleDomain.all()));
+            context.getSession().getSessionLogger().log(() -> "PickTableLayoutWithoutPredicate ends");
+            return result;
         }
     }
 
