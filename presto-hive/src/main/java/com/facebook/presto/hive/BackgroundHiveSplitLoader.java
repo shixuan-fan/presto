@@ -269,10 +269,7 @@ public class BackgroundHiveSplitLoader
             if (partition == null) {
                 return COMPLETED_FUTURE;
             }
-            session.getSessionLogger().log(() -> "partition loading begins");
-            ListenableFuture<?> listenableFuture = loadPartition(partition);
-            session.getSessionLogger().log(() -> "partition loading ends");
-            return listenableFuture;
+            return loadPartition(partition);
         }
 
         while (splits.hasNext() && !stopped) {
