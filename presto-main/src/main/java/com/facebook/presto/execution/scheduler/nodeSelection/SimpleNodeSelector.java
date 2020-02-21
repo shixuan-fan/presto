@@ -194,22 +194,23 @@ public class SimpleNodeSelector
 
     private static InternalNode chooseLeastBusyNode(List<InternalNode> candidateNodes, Function<InternalNode, Integer> splitCountProvider, OptionalInt preferredNodeCount, int maxSplitCount)
     {
-        int min = Integer.MAX_VALUE;
-        InternalNode chosenNode = null;
-        for (int i = 0; i < candidateNodes.size(); i++) {
-            InternalNode node = candidateNodes.get(i);
-            int splitCount = splitCountProvider.apply(node);
-
-            // choose the preferred node first as long as they're not busy
-            if (preferredNodeCount.isPresent() && i < preferredNodeCount.getAsInt() && splitCount < maxSplitCount) {
-                return node;
-            }
-            // fallback to choosing the least busy nodes
-            if (splitCount < min && splitCount < maxSplitCount) {
-                chosenNode = node;
-                min = splitCount;
-            }
-        }
-        return chosenNode;
+        return candidateNodes.get(0);
+//        int min = Integer.MAX_VALUE;
+//        InternalNode chosenNode = null;
+//        for (int i = 0; i < candidateNodes.size(); i++) {
+//            InternalNode node = candidateNodes.get(i);
+//            int splitCount = splitCountProvider.apply(node);
+//
+//            // choose the preferred node first as long as they're not busy
+//            if (preferredNodeCount.isPresent() && i < preferredNodeCount.getAsInt() && splitCount < maxSplitCount) {
+//                return node;
+//            }
+//            // fallback to choosing the least busy nodes
+//            if (splitCount < min && splitCount < maxSplitCount) {
+//                chosenNode = node;
+//                min = splitCount;
+//            }
+//        }
+//        return chosenNode;
     }
 }
