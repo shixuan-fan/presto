@@ -179,6 +179,7 @@ import static com.facebook.presto.hive.HiveTableProperties.EXTERNAL_LOCATION_PRO
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.PREFERRED_ORDERING_COLUMNS;
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getAvroSchemaUrl;
@@ -188,6 +189,7 @@ import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
+import static com.facebook.presto.hive.HiveTableProperties.getPreferredOrderingColumns;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
@@ -542,6 +544,15 @@ public class HiveMetadata
             properties.put(SORTED_BY_PROPERTY, bucketProperty.get().getSortedBy());
         }
 
+        // Preferred ordering columns
+        List<SortingColumn> preferredOrderingColumns = decodePreferredOrderingColumnsFromStorage(table.get().getStorage());
+        if (!preferredOrderingColumns.isEmpty()) {
+            if (bucketProperty.isPresent()) {
+                throw new PrestoException(HIVE_INVALID_METADATA, format("bucketed table %s should not specify preferred_ordering_columns", tableName));
+            }
+            properties.put(PREFERRED_ORDERING_COLUMNS, preferredOrderingColumns);
+        }
+
         // ORC format specific properties
         String orcBloomFilterColumns = table.get().getParameters().get(ORC_BLOOM_FILTER_COLUMNS_KEY);
         if (orcBloomFilterColumns != null) {
@@ -767,6 +778,7 @@ public class HiveMetadata
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
+        List<SortingColumn> preferredOrderingColumns = getPreferredOrderingColumns(tableMetadata.getProperties());
         Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, !partitionedBy.isEmpty(), new HdfsContext(session, schemaName, tableName));
 
         validateColumns(hiveStorageFormat, columnHandles);
@@ -804,6 +816,7 @@ public class HiveMetadata
                 hiveStorageFormat,
                 partitionedBy,
                 bucketProperty,
+                preferredOrderingColumns,
                 tableProperties,
                 targetPath,
                 tableType,
@@ -1004,6 +1017,7 @@ public class HiveMetadata
             HiveStorageFormat hiveStorageFormat,
             List<String> partitionedBy,
             Optional<HiveBucketProperty> bucketProperty,
+            List<SortingColumn> preferredOrderingColumns,
             Map<String, String> additionalTableParameters,
             Path targetPath,
             PrestoTableType tableType,
@@ -1051,6 +1065,7 @@ public class HiveMetadata
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
                 .setBucketProperty(bucketProperty)
+                .setParameters(ImmutableMap.of(PREFERRED_ORDERING_COLUMNS, encodePreferredOrderingColumns(preferredOrderingColumns)))
                 .setLocation(targetPath.toString());
 
         return tableBuilder.build();
@@ -1220,6 +1235,7 @@ public class HiveMetadata
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+        List<SortingColumn> preferredOrderingColumns = getPreferredOrderingColumns(tableMetadata.getProperties());
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -1254,6 +1270,7 @@ public class HiveMetadata
                 getCompressionCodec(session),
                 partitionedBy,
                 bucketProperty,
+                preferredOrderingColumns,
                 session.getUser(),
                 tableProperties);
 
@@ -1287,6 +1304,7 @@ public class HiveMetadata
                 handle.getTableStorageFormat(),
                 handle.getPartitionedBy(),
                 handle.getBucketProperty(),
+                handle.getPreferredOrderingColumns(),
                 handle.getAdditionalTableParameters(),
                 writeInfo.getTargetPath(),
                 MANAGED_TABLE,
@@ -1485,6 +1503,7 @@ public class HiveMetadata
         else {
             locationHandle = locationService.forExistingTable(metastore, session, table.get(), tempPathRequired);
         }
+
         HiveInsertTableHandle result = new HiveInsertTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
@@ -1493,6 +1512,7 @@ public class HiveMetadata
                 metastore.generatePageSinkMetadata(tableName),
                 locationHandle,
                 table.get().getStorage().getBucketProperty(),
+                decodePreferredOrderingColumnsFromStorage(table.get().getStorage()),
                 tableStorageFormat,
                 isRespectTableFormat(session) ? tableStorageFormat : HiveSessionProperties.getHiveStorageFormat(session),
                 isTemporaryTable ? getTemporaryTableCompressionCodec(session) : getCompressionCodec(session));
@@ -2520,6 +2540,26 @@ public class HiveMetadata
             }
         }
         throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serde));
+    }
+
+    @VisibleForTesting
+    static String encodePreferredOrderingColumns(List<SortingColumn> preferredOrderingColumns)
+    {
+        return Joiner.on(COMMA).join(preferredOrderingColumns.stream()
+                .map(SortingColumn::sortingColumnToString)
+                .collect(toImmutableList()));
+    }
+
+    @VisibleForTesting
+    static List<SortingColumn> decodePreferredOrderingColumnsFromStorage(Storage storage)
+    {
+        if (!storage.getParameters().containsKey(PREFERRED_ORDERING_COLUMNS)) {
+            return ImmutableList.of();
+        }
+
+        return Splitter.on(COMMA).trimResults().omitEmptyStrings().splitToList(storage.getParameters().get(PREFERRED_ORDERING_COLUMNS)).stream()
+                .map(SortingColumn::sortingColumnFromString)
+                .collect(toImmutableList());
     }
 
     private static void validateBucketColumns(ConnectorTableMetadata tableMetadata)
