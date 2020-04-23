@@ -432,7 +432,7 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, PathFilter pathFilter)
     {
-        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, pathFilter))
+        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, pathFilter, getNodeSelectionStrategy(session)))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -459,7 +459,7 @@ public class BackgroundHiveSplitLoader
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
             session.getSessionLogger().log(() -> "directory list starts");
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, FAIL, pathFilter));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, FAIL, pathFilter, getNodeSelectionStrategy(session)));
             session.getSessionLogger().log(() -> "directory list ends");
         }
         catch (NestedDirectoryNotAllowedException e) {
@@ -528,7 +528,7 @@ public class BackgroundHiveSplitLoader
     private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable, PathFilter pathFilter)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
-        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, pathFilter))
+        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, pathFilter, getNodeSelectionStrategy(session)))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());
                     return splitFactory.createInternalHiveSplit(fileInfo, virtualBucketNumber, virtualBucketNumber, splittable);
