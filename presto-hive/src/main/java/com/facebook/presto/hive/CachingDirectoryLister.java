@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
@@ -35,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.hive.util.HiveFileIterator.NestedDirectoryPolicy;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -77,17 +79,26 @@ public class CachingDirectoryLister
     }
 
     @Override
-    public Iterator<HiveFileInfo> list(FileSystem fileSystem, Table table, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy, PathFilter pathFilter)
+    public Iterator<HiveFileInfo> list(
+            FileSystem fileSystem,
+            Table table,
+            Path path,
+            NamenodeStats namenodeStats,
+            NestedDirectoryPolicy nestedDirectoryPolicy,
+            PathFilter pathFilter,
+            NodeSelectionStrategy nodeSelectionStrategy)
     {
         SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
 
-        List<HiveFileInfo> files = cache.getIfPresent(path);
-        if (files != null) {
-            return files.iterator();
+        if (cachedTableChecker.isCachedTable(schemaTableName) && nodeSelectionStrategy != NO_PREFERENCE) {
+            List<HiveFileInfo> files = cache.getIfPresent(path);
+            if (files != null) {
+                return files.iterator();
+            }
         }
 
-        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, nestedDirectoryPolicy, pathFilter);
-        if (cachedTableChecker.isCachedTable(schemaTableName)) {
+        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, nestedDirectoryPolicy, pathFilter, nodeSelectionStrategy);
+        if (cachedTableChecker.isCachedTable(schemaTableName) && nodeSelectionStrategy != NO_PREFERENCE) {
             return cachingIterator(iterator, path);
         }
         return iterator;

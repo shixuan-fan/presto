@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.HiveFileIterator;
 import org.apache.hadoop.fs.FileSystem;
+import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
@@ -33,7 +34,14 @@ public class HadoopDirectoryLister
         implements DirectoryLister
 {
     @Override
-    public Iterator<HiveFileInfo> list(FileSystem fileSystem, Table table, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy, PathFilter pathFilter)
+    public Iterator<HiveFileInfo> list(
+            FileSystem fileSystem,
+            Table table,
+            Path path,
+            NamenodeStats namenodeStats,
+            NestedDirectoryPolicy nestedDirectoryPolicy,
+            PathFilter pathFilter,
+            NodeSelectionStrategy nodeSelectionStrategy)
     {
         return new HiveFileIterator(path, p -> new HadoopFileInfoIterator(fileSystem.listLocatedStatus(p)), namenodeStats, nestedDirectoryPolicy, pathFilter);
     }
