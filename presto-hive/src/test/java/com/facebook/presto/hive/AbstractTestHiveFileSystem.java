@@ -219,7 +219,8 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxPartitionBatchSize(),
                 config.getMaxInitialSplits(),
                 config.getSplitLoaderConcurrency(),
-                config.getRecursiveDirWalkerEnabled());
+                config.getRecursiveDirWalkerEnabled(),
+                config.getMaxPartitionLoadConcurrency());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
                 hdfsEnvironment,

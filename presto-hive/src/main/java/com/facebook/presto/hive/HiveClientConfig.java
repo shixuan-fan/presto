@@ -62,6 +62,7 @@ public class HiveClientConfig
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
+    private int maxPartitionLoadConcurrency = 4;
     private int maxInitialSplits = 200;
     private int splitLoaderConcurrency = 4;
     private DataSize maxInitialSplitSize;
@@ -409,6 +410,19 @@ public class HiveClientConfig
     public HiveClientConfig setMaxPartitionBatchSize(int maxPartitionBatchSize)
     {
         this.maxPartitionBatchSize = maxPartitionBatchSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionLoadConcurrency()
+    {
+        return maxPartitionLoadConcurrency;
+    }
+
+    @Config("hive.metastore.max-partition-load-concurrency")
+    public HiveClientConfig setMaxPartitionLoadConcurrency(int maxPartitionLoadConcurrency)
+    {
+        this.maxPartitionLoadConcurrency = maxPartitionLoadConcurrency;
         return this;
     }
 

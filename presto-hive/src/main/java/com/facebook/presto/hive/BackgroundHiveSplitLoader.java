@@ -113,7 +113,7 @@ public class BackgroundHiveSplitLoader
     private final boolean recursiveDirWalkerEnabled;
     private final Executor executor;
     private final ConnectorSession session;
-    private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
+    private final Iterator<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final boolean schedulerUsesHostAddresses;
     private final Supplier<HoodieROTablePathFilter> hoodiePathFilterSupplier;
@@ -140,7 +140,7 @@ public class BackgroundHiveSplitLoader
 
     public BackgroundHiveSplitLoader(
             Table table,
-            Iterable<HivePartitionMetadata> partitions,
+            Iterator<HivePartitionMetadata> partitions,
             Optional<Domain> pathDomain,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
@@ -162,10 +162,10 @@ public class BackgroundHiveSplitLoader
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.executor = requireNonNull(executor, "executor is null");
-        this.partitions = new ConcurrentLazyQueue<>(requireNonNull(partitions, "partitions is null"));
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
         this.hoodiePathFilterSupplier = Suppliers.memoize(HoodieROTablePathFilter::new);
+        this.partitions = requireNonNull(partitions, "partitions is null");
     }
 
     @Override
@@ -229,7 +229,7 @@ public class BackgroundHiveSplitLoader
         taskExecutionLock.readLock().lock();
         try {
             // This is an opportunistic check to avoid getting the write lock unnecessarily
-            if (!partitions.isEmpty() || !fileIterators.isEmpty()) {
+            if (partitions.hasNext() || !fileIterators.isEmpty()) {
                 return;
             }
         }
@@ -245,7 +245,7 @@ public class BackgroundHiveSplitLoader
         taskExecutionLock.writeLock().lock();
         try {
             // the write lock guarantees that no one is operating on the partitions, fileIterators, or hiveSplitSource, or half way through doing so.
-            if (partitions.isEmpty() && fileIterators.isEmpty()) {
+            if (!partitions.hasNext() && fileIterators.isEmpty()) {
                 // It is legal to call `noMoreSplits` multiple times or after `stop` was called.
                 // Nothing bad will happen if `noMoreSplits` implementation calls methods that will try to obtain a read lock because the lock is re-entrant.
                 hiveSplitSource.noMoreSplits();
@@ -265,7 +265,7 @@ public class BackgroundHiveSplitLoader
     {
         Iterator<InternalHiveSplit> splits = fileIterators.poll();
         if (splits == null) {
-            HivePartitionMetadata partition = partitions.poll();
+            HivePartitionMetadata partition = partitions.next();
             if (partition == null) {
                 return COMPLETED_FUTURE;
             }

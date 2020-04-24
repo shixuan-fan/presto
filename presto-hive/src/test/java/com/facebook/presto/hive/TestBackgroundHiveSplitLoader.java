@@ -300,7 +300,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 table,
-                hivePartitionMetadatas,
+                hivePartitionMetadatas.iterator(),
                 pathDomain,
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 connectorSession,
@@ -326,7 +326,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
-                hivePartitionMetadatas,
+                hivePartitionMetadatas.iterator(),
                 Optional.empty(),
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
@@ -346,7 +346,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
-                createPartitionMetadataWithOfflinePartitions(),
+                createPartitionMetadataWithOfflinePartitions().iterator(),
                 Optional.empty(),
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
