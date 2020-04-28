@@ -60,6 +60,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isSpeculativePartitionFetchEnabled;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
@@ -309,6 +310,16 @@ public class HiveSplitManager
             HivePartition firstPartition = getOnlyElement(hivePartitions);
             if (firstPartition.getPartitionId().equals(UNPARTITIONED_ID)) {
                 return ImmutableList.of(new HivePartitionMetadata(firstPartition, Optional.empty(), ImmutableMap.of()));
+            }
+        }
+
+        // Speculative execution
+        if (isSpeculativePartitionFetchEnabled(session)) {
+            for (List<HivePartition> partitionBatch : partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize)) {
+                executor.execute(() -> metastore.getPartitionsByNames(
+                        tableName.getSchemaName(),
+                        tableName.getTableName(),
+                        Lists.transform(partitionBatch, HivePartition::getPartitionId)));
             }
         }
 
