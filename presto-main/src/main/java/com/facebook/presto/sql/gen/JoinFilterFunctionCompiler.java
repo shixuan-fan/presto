@@ -78,7 +78,7 @@ public class JoinFilterFunctionCompiler
     private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
-            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getSqlFunctionProperties(), key.getFilter(), key.getLeftBlocksSize())));
+            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getSqlFunctionProperties(), key.getFilter(), key.getLeftBlocksSize(), key.isLegacyTypeCoercionWarningEnabled())));
 
     @Managed
     @Nested
@@ -87,18 +87,18 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize, boolean legacyTypeCoercionWarningEnabled)
     {
-        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(sqlFunctionProperties, filter, leftBlocksSize));
+        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(sqlFunctionProperties, filter, leftBlocksSize, legacyTypeCoercionWarningEnabled));
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize, boolean legacyTypeCoercionWarningEnabled)
     {
-        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(sqlFunctionProperties, filterExpression, leftBlocksSize);
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(sqlFunctionProperties, filterExpression, leftBlocksSize, legacyTypeCoercionWarningEnabled);
         return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize)
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize, boolean legacyTypeCoercionWarningEnabled)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -108,7 +108,7 @@ public class JoinFilterFunctionCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        new JoinFilterFunctionCompiler(metadata).generateMethods(sqlFunctionProperties, classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
+        new JoinFilterFunctionCompiler(metadata).generateMethods(sqlFunctionProperties, classDefinition, callSiteBinder, filterExpression, leftBlocksSize, legacyTypeCoercionWarningEnabled);
 
         //
         // toString method
@@ -124,14 +124,14 @@ public class JoinFilterFunctionCompiler
         return defineClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private void generateMethods(SqlFunctionProperties sqlFunctionProperties, ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
+    private void generateMethods(SqlFunctionProperties sqlFunctionProperties, ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize, boolean legacyTypeCoercionWarningEnabled)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition propertiesField = classDefinition.declareField(a(PRIVATE, FINAL), "properties", SqlFunctionProperties.class);
 
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties);
-        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, propertiesField);
+        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, propertiesField, legacyTypeCoercionWarningEnabled);
 
         generateConstructor(classDefinition, propertiesField, cachedInstanceBinder);
     }
@@ -164,7 +164,8 @@ public class JoinFilterFunctionCompiler
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression filter,
             int leftBlocksSize,
-            FieldDefinition propertiesField)
+            FieldDefinition propertiesField,
+            boolean legacyTypeCoercionWarningEnabled)
     {
         // int leftPosition, Page leftPage, int rightPosition, Page rightPage
         Parameter leftPosition = arg("leftPosition", int.class);
@@ -197,7 +198,8 @@ public class JoinFilterFunctionCompiler
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                legacyTypeCoercionWarningEnabled);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope, Optional.empty());
 
@@ -248,12 +250,14 @@ public class JoinFilterFunctionCompiler
         private final SqlFunctionProperties sqlFunctionProperties;
         private final RowExpression filter;
         private final int leftBlocksSize;
+        private final boolean legacyTypeCoercionWarningEnabled;
 
-        public JoinFilterCacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize)
+        public JoinFilterCacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize, boolean legacyTypeCoercionWarningEnabled)
         {
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
             this.filter = requireNonNull(filter, "filter can not be null");
             this.leftBlocksSize = leftBlocksSize;
+            this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
         }
 
         public SqlFunctionProperties getSqlFunctionProperties()
@@ -271,6 +275,11 @@ public class JoinFilterFunctionCompiler
             return leftBlocksSize;
         }
 
+        public boolean isLegacyTypeCoercionWarningEnabled()
+        {
+            return legacyTypeCoercionWarningEnabled;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -281,14 +290,16 @@ public class JoinFilterFunctionCompiler
                 return false;
             }
             JoinFilterCacheKey that = (JoinFilterCacheKey) o;
-            return leftBlocksSize == that.leftBlocksSize &&
-                    Objects.equals(filter, that.filter);
+            return Objects.equals(sqlFunctionProperties, that.sqlFunctionProperties) &&
+                    leftBlocksSize == that.leftBlocksSize &&
+                    Objects.equals(filter, that.filter) &&
+                    legacyTypeCoercionWarningEnabled == that.legacyTypeCoercionWarningEnabled;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(leftBlocksSize, filter);
+            return Objects.hash(leftBlocksSize, filter, legacyTypeCoercionWarningEnabled);
         }
 
         @Override

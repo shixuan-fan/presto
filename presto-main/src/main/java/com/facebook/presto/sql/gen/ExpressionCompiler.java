@@ -67,7 +67,7 @@ public class ExpressionCompiler
         this.cursorProcessors = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
-                .build(CacheLoader.from(key -> compile(key.getSqlFunctionProperties(), key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata, key.isOptimizeCommonSubExpression()), CursorProcessor.class)));
+                .build(CacheLoader.from(key -> compile(key.getSqlFunctionProperties(), key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata, key.isOptimizeCommonSubExpression(), key.isLegacyTypeCoercionWarningEnabled()), CursorProcessor.class)));
 
         this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
@@ -78,14 +78,10 @@ public class ExpressionCompiler
     {
         return cacheStatsMBean;
     }
-    public Supplier<CursorProcessor> compileCursorProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
-    {
-        return compileCursorProcessor(sqlFunctionProperties, filter, projections, uniqueKey, true);
-    }
 
-    public Supplier<CursorProcessor> compileCursorProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey, boolean isOptimizeCommonSubExpression)
+    public Supplier<CursorProcessor> compileCursorProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey, boolean isOptimizeCommonSubExpression, boolean legacyTypeCoercionWarningEnabled)
     {
-        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(sqlFunctionProperties, filter, projections, uniqueKey, isOptimizeCommonSubExpression));
+        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(sqlFunctionProperties, filter, projections, uniqueKey, isOptimizeCommonSubExpression, legacyTypeCoercionWarningEnabled));
         return () -> {
             try {
                 return cursorProcessor.getConstructor().newInstance();
@@ -190,14 +186,22 @@ public class ExpressionCompiler
         private final List<RowExpression> projections;
         private final Object uniqueKey;
         private final boolean isOptimizeCommonSubExpression;
+        private final boolean legacyTypeCoercionWarningEnabled;
 
-        private CacheKey(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey, boolean isOptimizeCommonSubExpression)
+        private CacheKey(
+                SqlFunctionProperties sqlFunctionProperties,
+                Optional<RowExpression> filter,
+                List<? extends RowExpression> projections,
+                Object uniqueKey,
+                boolean isOptimizeCommonSubExpression,
+                boolean legacyTypeCoercionWarningEnabled)
         {
             this.sqlFunctionProperties = sqlFunctionProperties;
             this.filter = filter;
             this.uniqueKey = uniqueKey;
             this.projections = ImmutableList.copyOf(projections);
             this.isOptimizeCommonSubExpression = isOptimizeCommonSubExpression;
+            this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
         }
 
         public SqlFunctionProperties getSqlFunctionProperties()
@@ -218,6 +222,11 @@ public class ExpressionCompiler
         private boolean isOptimizeCommonSubExpression()
         {
             return isOptimizeCommonSubExpression;
+        }
+
+        private boolean isLegacyTypeCoercionWarningEnabled()
+        {
+            return legacyTypeCoercionWarningEnabled;
         }
 
         @Override

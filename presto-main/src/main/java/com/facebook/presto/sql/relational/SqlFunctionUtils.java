@@ -70,16 +70,22 @@ public final class SqlFunctionUtils
         return SqlFunctionArgumentBinder.bindFunctionArguments(expression, functionMetadata.getArgumentNames().get(), arguments);
     }
 
-    public static RowExpression getSqlFunctionRowExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation functionImplementation, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, List<RowExpression> arguments)
+    public static RowExpression getSqlFunctionRowExpression(
+            FunctionMetadata functionMetadata,
+            SqlInvokedScalarFunctionImplementation functionImplementation,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            List<RowExpression> arguments,
+            boolean legacyTypeCoercionWarningEnabled)
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
         Expression normalized = normalizeParameters(functionMetadata.getArgumentNames().get(), parseSqlFunctionExpression(functionImplementation, sqlFunctionProperties));
-        Expression expression = coerceIfNecessary(functionMetadata, normalized, sqlFunctionProperties, metadata);
+        Expression expression = coerceIfNecessary(functionMetadata, normalized, sqlFunctionProperties, metadata, legacyTypeCoercionWarningEnabled);
 
         // Allocate variables for identifiers
         PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
-        Map<Identifier, VariableReferenceExpression> variables = buildIdentifierToVariableMap(functionMetadata, expression, sqlFunctionProperties, metadata, variableAllocator);
+        Map<Identifier, VariableReferenceExpression> variables = buildIdentifierToVariableMap(functionMetadata, expression, sqlFunctionProperties, metadata, variableAllocator, legacyTypeCoercionWarningEnabled);
 
         // Rewrite expression with allocated variables
         Expression rewritten = rewriteSqlFunctionExpressionWithVariables(expression, variables);
@@ -91,7 +97,7 @@ public final class SqlFunctionUtils
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 SqlToRowExpressionTranslator.translate(
                         lambdaCaptureDesugaredExpression,
-                        analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, lambdaCaptureDesugaredExpression, variableAllocator.getTypes().allTypes()).getExpressionTypes(),
+                        analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, lambdaCaptureDesugaredExpression, variableAllocator.getTypes().allTypes(), legacyTypeCoercionWarningEnabled).getExpressionTypes(),
                         ImmutableMap.of(),
                         metadata.getFunctionManager(),
                         metadata.getTypeManager(),
@@ -144,11 +150,17 @@ public final class SqlFunctionUtils
         return typeBuilder.build();
     }
 
-    private static Map<Identifier, VariableReferenceExpression> buildIdentifierToVariableMap(FunctionMetadata functionMetadata, Expression sqlFunction, SqlFunctionProperties sqlFunctionProperties, Metadata metadata, PlanVariableAllocator variableAllocator)
+    private static Map<Identifier, VariableReferenceExpression> buildIdentifierToVariableMap(
+            FunctionMetadata functionMetadata,
+            Expression sqlFunction,
+            SqlFunctionProperties sqlFunctionProperties,
+            Metadata metadata,
+            PlanVariableAllocator variableAllocator,
+            boolean legacyTypeCoercionWarningEnabled)
     {
         // Allocate variables for identifiers
         Map<String, Type> argumentTypes = getFunctionArgumentTypes(functionMetadata, metadata);
-        Map<NodeRef<Expression>, Type> expressionTypes = analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, sqlFunction, argumentTypes).getExpressionTypes();
+        Map<NodeRef<Expression>, Type> expressionTypes = analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, sqlFunction, argumentTypes, legacyTypeCoercionWarningEnabled).getExpressionTypes();
         Map<Identifier, VariableReferenceExpression> variables = new LinkedHashMap<>();
         for (Map.Entry<NodeRef<Expression>, Type> entry : expressionTypes.entrySet()) {
             Expression node = entry.getKey().getNode();
@@ -191,9 +203,9 @@ public final class SqlFunctionUtils
         }, sqlFunction, variableMap);
     }
 
-    private static Expression coerceIfNecessary(FunctionMetadata functionMetadata, Expression sqlFunction, SqlFunctionProperties sqlFunctionProperties, Metadata metadata)
+    private static Expression coerceIfNecessary(FunctionMetadata functionMetadata, Expression sqlFunction, SqlFunctionProperties sqlFunctionProperties, Metadata metadata, boolean legacyTypeCoercionWarningEnabled)
     {
-        ExpressionAnalysis analysis = analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, sqlFunction, getFunctionArgumentTypes(functionMetadata, metadata));
+        ExpressionAnalysis analysis = analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, sqlFunction, getFunctionArgumentTypes(functionMetadata, metadata), legacyTypeCoercionWarningEnabled);
 
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<ExpressionAnalysis>()
         {

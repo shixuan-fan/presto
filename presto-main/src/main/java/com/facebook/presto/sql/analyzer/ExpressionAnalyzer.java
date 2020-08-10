@@ -118,6 +118,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.isLegacyTypeCoercionWarningEnabled;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -200,6 +201,7 @@ public class ExpressionAnalyzer
     private final SqlFunctionProperties sqlFunctionProperties;
     private final List<Expression> parameters;
     private final WarningCollector warningCollector;
+    private final boolean legacyTypeCoercionWarningEnabled;
 
     private ExpressionAnalyzer(
             FunctionManager functionManager,
@@ -210,7 +212,8 @@ public class ExpressionAnalyzer
             TypeProvider symbolTypes,
             List<Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            boolean legacyTypeCoercionWarningEnabled)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -221,6 +224,7 @@ public class ExpressionAnalyzer
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
     }
 
     public Map<NodeRef<FunctionCall>, FunctionHandle> getResolvedFunctions()
@@ -891,7 +895,8 @@ public class ExpressionAnalyzer
                                         symbolTypes,
                                         parameters,
                                         warningCollector,
-                                        isDescribe);
+                                        isDescribe,
+                                        legacyTypeCoercionWarningEnabled);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
@@ -1590,7 +1595,8 @@ public class ExpressionAnalyzer
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
             Expression expression,
-            Map<String, Type> argumentTypes)
+            Map<String, Type> argumentTypes,
+            boolean legacyTypeCoercionWarningEnabled)
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionManager(),
@@ -1601,7 +1607,8 @@ public class ExpressionAnalyzer
                 emptyList(),
                 node -> new SemanticException(NOT_SUPPORTED, node, "SQL function does not support subquery"),
                 WarningCollector.NOOP,
-                false);
+                false,
+                legacyTypeCoercionWarningEnabled);
 
         analyzer.analyze(
                 expression,
@@ -1642,7 +1649,8 @@ public class ExpressionAnalyzer
                 types,
                 analysis.getParameters(),
                 warningCollector,
-                analysis.isDescribe());
+                analysis.isDescribe(),
+                isLegacyTypeCoercionWarningEnabled(session));
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector)
@@ -1711,7 +1719,8 @@ public class ExpressionAnalyzer
                 parameters,
                 statementAnalyzerRejection,
                 warningCollector,
-                isDescribe);
+                isDescribe,
+                isLegacyTypeCoercionWarningEnabled(session));
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
@@ -1723,7 +1732,8 @@ public class ExpressionAnalyzer
             List<Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            boolean legacyTypeCoercionWarningEnabled)
     {
         return new ExpressionAnalyzer(
                 functionManager,
@@ -1736,6 +1746,7 @@ public class ExpressionAnalyzer
                 symbolTypes,
                 parameters,
                 warningCollector,
-                isDescribe);
+                isDescribe,
+                legacyTypeCoercionWarningEnabled);
     }
 }

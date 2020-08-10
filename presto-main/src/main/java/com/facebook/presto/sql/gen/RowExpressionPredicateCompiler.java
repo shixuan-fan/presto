@@ -93,15 +93,15 @@ public class RowExpressionPredicateCompiler
     }
 
     @Override
-    public Supplier<Predicate> compilePredicate(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate)
+    public Supplier<Predicate> compilePredicate(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate, boolean legacyTypeCoercionWarningEnabled)
     {
         if (predicateCache == null) {
-            return compilePredicateInternal(sqlFunctionProperties, predicate);
+            return compilePredicateInternal(sqlFunctionProperties, predicate, legacyTypeCoercionWarningEnabled);
         }
         return predicateCache.getUnchecked(new CacheKey(sqlFunctionProperties, predicate));
     }
 
-    private Supplier<Predicate> compilePredicateInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate)
+    private Supplier<Predicate> compilePredicateInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate, boolean legacyTypeCoercionWarningEnabled)
     {
         requireNonNull(predicate, "predicate is null");
 
@@ -111,7 +111,7 @@ public class RowExpressionPredicateCompiler
                 .toArray();
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = definePredicateClass(sqlFunctionProperties, result.getRewrittenExpression(), inputChannels, callSiteBinder);
+        ClassDefinition classDefinition = definePredicateClass(sqlFunctionProperties, result.getRewrittenExpression(), inputChannels, callSiteBinder, legacyTypeCoercionWarningEnabled);
 
         Class<? extends Predicate> predicateClass;
         try {
@@ -131,7 +131,7 @@ public class RowExpressionPredicateCompiler
         };
     }
 
-    private ClassDefinition definePredicateClass(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate, int[] inputChannels, CallSiteBinder callSiteBinder)
+    private ClassDefinition definePredicateClass(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate, int[] inputChannels, CallSiteBinder callSiteBinder, boolean legacyTypeCoercionWarningEnabled)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -141,7 +141,7 @@ public class RowExpressionPredicateCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        generatePredicateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, predicate);
+        generatePredicateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, predicate, legacyTypeCoercionWarningEnabled);
 
         // getInputChannels
         classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(int[].class))
@@ -160,9 +160,10 @@ public class RowExpressionPredicateCompiler
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            RowExpression predicate)
+            RowExpression predicate,
+            boolean legacyTypeCoercionWarningEnabled)
     {
-        Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, predicate, metadata, sqlFunctionProperties);
+        Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, predicate, metadata, sqlFunctionProperties, legacyTypeCoercionWarningEnabled);
 
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
@@ -193,7 +194,8 @@ public class RowExpressionPredicateCompiler
                 fieldReferenceCompiler(callSiteBinder),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                legacyTypeCoercionWarningEnabled);
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(compiler.compile(predicate, scope, Optional.empty()))

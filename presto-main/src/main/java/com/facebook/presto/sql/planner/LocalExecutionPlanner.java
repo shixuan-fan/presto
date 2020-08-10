@@ -242,6 +242,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWrit
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isLegacyTypeCoercionWarningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -1335,7 +1336,7 @@ public class LocalExecutionPlanner
 
             try {
                 if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId(), isOptimizeCommonSubExpressions(session));
+                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId(), isOptimizeCommonSubExpressions(session), isLegacyTypeCoercionWarningEnabled(session));
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
@@ -2258,7 +2259,7 @@ public class LocalExecutionPlanner
                 Map<VariableReferenceExpression, Integer> buildLayout)
         {
             Map<VariableReferenceExpression, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(sqlFunctionProperties, bindChannels(filterExpression, joinSourcesLayout), buildLayout.size());
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(sqlFunctionProperties, bindChannels(filterExpression, joinSourcesLayout), buildLayout.size(), isLegacyTypeCoercionWarningEnabled(session));
         }
 
         private int sortExpressionAsSortChannel(

@@ -85,21 +85,10 @@ public class LambdaBytecodeGenerator
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression expression,
             Metadata metadata,
-            SqlFunctionProperties sqlFunctionProperties)
-    {
-        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expression, metadata, sqlFunctionProperties, "");
-    }
-
-    public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            RowExpression expression,
-            Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
-            String methodNamePrefix)
+            boolean legacyTypeCoercionWarningEnabled)
     {
-        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, ImmutableList.of(expression), metadata, sqlFunctionProperties, methodNamePrefix);
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expression, metadata, sqlFunctionProperties, "", legacyTypeCoercionWarningEnabled);
     }
 
     public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -110,9 +99,23 @@ public class LambdaBytecodeGenerator
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
             String methodNamePrefix,
-            Set<LambdaDefinitionExpression> existingCompiledLambdas)
+            boolean legacyTypeCoercionWarningEnabled)
     {
-        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, ImmutableList.of(expression), metadata, sqlFunctionProperties, methodNamePrefix, existingCompiledLambdas);
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, ImmutableList.of(expression), metadata, sqlFunctionProperties, methodNamePrefix, legacyTypeCoercionWarningEnabled);
+    }
+
+    public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            RowExpression expression,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            String methodNamePrefix,
+            Set<LambdaDefinitionExpression> existingCompiledLambdas,
+            boolean legacyTypeCoercionWarningEnabled)
+    {
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, ImmutableList.of(expression), metadata, sqlFunctionProperties, methodNamePrefix, existingCompiledLambdas, legacyTypeCoercionWarningEnabled);
     }
 
     public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -122,9 +125,10 @@ public class LambdaBytecodeGenerator
             List<RowExpression> expressions,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
-            String methodNamePrefix)
+            String methodNamePrefix,
+            boolean legacyTypeCoercionWarningEnabled)
     {
-        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expressions, metadata, sqlFunctionProperties, methodNamePrefix, ImmutableSet.of());
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expressions, metadata, sqlFunctionProperties, methodNamePrefix, ImmutableSet.of(), legacyTypeCoercionWarningEnabled);
     }
 
     private static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -135,7 +139,8 @@ public class LambdaBytecodeGenerator
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
             String methodNamePrefix,
-            Set<LambdaDefinitionExpression> existingCompiledLambdas)
+            Set<LambdaDefinitionExpression> existingCompiledLambdas,
+            boolean legacyTypeCoercionWarningEnabled)
     {
         Set<LambdaDefinitionExpression> lambdaExpressions = expressions.stream()
                 .map(LambdaExpressionExtractor::extractLambdaExpressions)
@@ -154,7 +159,8 @@ public class LambdaBytecodeGenerator
                     callSiteBinder,
                     cachedInstanceBinder,
                     metadata,
-                    sqlFunctionProperties);
+                    sqlFunctionProperties,
+                    legacyTypeCoercionWarningEnabled);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -173,7 +179,8 @@ public class LambdaBytecodeGenerator
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             Metadata metadata,
-            SqlFunctionProperties sqlFunctionProperties)
+            SqlFunctionProperties sqlFunctionProperties,
+            boolean legacyTypeCoercionWarningEnabled)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
@@ -194,7 +201,8 @@ public class LambdaBytecodeGenerator
                 variableReferenceCompiler(parameterMapBuilder.build()),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                legacyTypeCoercionWarningEnabled);
 
         return defineLambdaMethod(
                 innerExpressionCompiler,
@@ -290,7 +298,7 @@ public class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, Class lambdaInterface)
+    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, Class lambdaInterface, boolean legacyTypeCoercionWarningEnabled)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
@@ -309,7 +317,8 @@ public class LambdaBytecodeGenerator
                 cachedInstanceBinder,
                 lambdaExpression,
                 metadata,
-                sqlFunctionProperties);
+                sqlFunctionProperties,
+                legacyTypeCoercionWarningEnabled);
 
         MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
                 a(PUBLIC),
@@ -329,7 +338,8 @@ public class LambdaBytecodeGenerator
                 variableReferenceCompiler(ImmutableMap.of()),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                legacyTypeCoercionWarningEnabled);
 
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                 rowExpressionCompiler,

@@ -81,11 +81,13 @@ public class CursorProcessorCompiler
 
     private final Metadata metadata;
     private final boolean isOptimizeCommonSubExpressions;
+    private final boolean legacyTypeCoercionWarningEnabled;
 
-    public CursorProcessorCompiler(Metadata metadata, boolean isOptimizeCommonSubExpressions)
+    public CursorProcessorCompiler(Metadata metadata, boolean isOptimizeCommonSubExpressions, boolean legacyTypeCoercionWarningEnabled)
     {
         this.metadata = metadata;
         this.isOptimizeCommonSubExpressions = isOptimizeCommonSubExpressions;
+        this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
     }
 
     @Override
@@ -107,7 +109,8 @@ public class CursorProcessorCompiler
                 fieldReferenceCompiler(cseFields),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                legacyTypeCoercionWarningEnabled);
 
         if (isOptimizeCommonSubExpressions) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(rowExpressions);
@@ -121,7 +124,8 @@ public class CursorProcessorCompiler
                         fieldReferenceCompiler(cseFields),
                         metadata,
                         sqlFunctionProperties,
-                        compiledLambdaMap);
+                        compiledLambdaMap,
+                        legacyTypeCoercionWarningEnabled);
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
 
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()

@@ -147,7 +147,7 @@ public class PageFunctionCompiler
             projectionCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpressions, cacheKey.isOptimizeCommonSubExpression, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileProjectionInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpressions, cacheKey.isOptimizeCommonSubExpression, Optional.empty(), cacheKey.legacyTypeCoercionWarningEnabled)));
             projectionCacheStats = new CacheStatsMBean(projectionCache);
         }
         else {
@@ -159,7 +159,7 @@ public class PageFunctionCompiler
             filterCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(expressionCacheSize)
-                    .build(CacheLoader.from(cacheKey -> compileFilterInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpressions.get(0), cacheKey.isOptimizeCommonSubExpression, Optional.empty())));
+                    .build(CacheLoader.from(cacheKey -> compileFilterInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpressions.get(0), cacheKey.isOptimizeCommonSubExpression, Optional.empty(), cacheKey.legacyTypeCoercionWarningEnabled)));
             filterCacheStats = new CacheStatsMBean(filterCache);
         }
         else {
@@ -184,7 +184,7 @@ public class PageFunctionCompiler
         return filterCacheStats;
     }
 
-    public List<Supplier<PageProjectionWithOutputs>> compileProjections(SqlFunctionProperties sqlFunctionProperties, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
+    public List<Supplier<PageProjectionWithOutputs>> compileProjections(SqlFunctionProperties sqlFunctionProperties, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix, boolean legacyTypeCoercionWarningEnabled)
     {
         if (isOptimizeCommonSubExpression) {
             ImmutableList.Builder<Supplier<PageProjectionWithOutputs>> pageProjections = ImmutableList.builder();
@@ -192,7 +192,7 @@ public class PageFunctionCompiler
             for (int i = 0; i < projections.size(); i++) {
                 RowExpression projection = projections.get(i);
                 if (projection instanceof ConstantExpression || projection instanceof InputReferenceExpression) {
-                    pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix), new int[] {i}));
+                    pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix, legacyTypeCoercionWarningEnabled), new int[] {i}));
                 }
                 else {
                     expressionsWithPositionBuilder.put(projection, i);
@@ -204,23 +204,23 @@ public class PageFunctionCompiler
 
             for (Map.Entry<List<RowExpression>, Boolean> entry : projectionsPartitionedByCSE.entrySet()) {
                 if (entry.getValue()) {
-                    pageProjections.add(toPageProjectionWithOutputs(compileProjectionCached(sqlFunctionProperties, entry.getKey(), true, classNameSuffix), toIntArray(entry.getKey().stream().map(expressionsWithPosition::get).collect(toImmutableList()))));
+                    pageProjections.add(toPageProjectionWithOutputs(compileProjectionCached(sqlFunctionProperties, entry.getKey(), true, classNameSuffix, legacyTypeCoercionWarningEnabled), toIntArray(entry.getKey().stream().map(expressionsWithPosition::get).collect(toImmutableList()))));
                 }
                 else {
                     verify(entry.getKey().size() == 1, "Expect non-cse expression list to only have one element");
                     RowExpression projection = entry.getKey().get(0);
-                    pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix), new int[] {expressionsWithPosition.get(projection)}));
+                    pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix, legacyTypeCoercionWarningEnabled), new int[] {expressionsWithPosition.get(projection)}));
                 }
             }
             return pageProjections.build();
         }
         return IntStream.range(0, projections.size())
-                .mapToObj(outputChannel -> toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projections.get(outputChannel), classNameSuffix), new int[] {outputChannel}))
+                .mapToObj(outputChannel -> toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projections.get(outputChannel), classNameSuffix, legacyTypeCoercionWarningEnabled), new int[] {outputChannel}))
                 .collect(toImmutableList());
     }
 
     @VisibleForTesting
-    public Supplier<PageProjection> compileProjection(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix)
+    public Supplier<PageProjection> compileProjection(SqlFunctionProperties sqlFunctionProperties, RowExpression projection, Optional<String> classNameSuffix, boolean legacyTypeCoercionWarningEnabled)
     {
         if (projection instanceof InputReferenceExpression) {
             InputReferenceExpression input = (InputReferenceExpression) projection;
@@ -234,15 +234,15 @@ public class PageFunctionCompiler
             return () -> projectionFunction;
         }
 
-        return compileProjectionCached(sqlFunctionProperties, ImmutableList.of(projection), false, classNameSuffix);
+        return compileProjectionCached(sqlFunctionProperties, ImmutableList.of(projection), false, classNameSuffix, legacyTypeCoercionWarningEnabled);
     }
 
-    private Supplier<PageProjection> compileProjectionCached(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
+    private Supplier<PageProjection> compileProjectionCached(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix, boolean legacyTypeCoercionWarningEnabled)
     {
         if (projectionCache == null) {
-            return compileProjectionInternal(sqlFunctionProperties, projections, isOptimizeCommonSubExpression, classNameSuffix);
+            return compileProjectionInternal(sqlFunctionProperties, projections, isOptimizeCommonSubExpression, classNameSuffix, legacyTypeCoercionWarningEnabled);
         }
-        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projections, isOptimizeCommonSubExpression));
+        return projectionCache.getUnchecked(new CacheKey(sqlFunctionProperties, projections, isOptimizeCommonSubExpression, legacyTypeCoercionWarningEnabled));
     }
 
     private Supplier<PageProjectionWithOutputs> toPageProjectionWithOutputs(Supplier<PageProjection> pageProjection, int[] outputChannels)
@@ -250,7 +250,7 @@ public class PageFunctionCompiler
         return () -> new PageProjectionWithOutputs(pageProjection.get(), outputChannels);
     }
 
-    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
+    private Supplier<PageProjection> compileProjectionInternal(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix, boolean legacyTypeCoercionWarningEnabled)
     {
         requireNonNull(projections, "projections is null");
         checkArgument(!projections.isEmpty() && projections.stream().allMatch(projection -> projection instanceof CallExpression || projection instanceof SpecialFormExpression));
@@ -261,7 +261,7 @@ public class PageFunctionCompiler
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         // generate Work
-        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, rewrittenExpression, callSiteBinder, isOptimizeCommonSubExpression, classNameSuffix);
+        ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(sqlFunctionProperties, rewrittenExpression, callSiteBinder, isOptimizeCommonSubExpression, classNameSuffix, legacyTypeCoercionWarningEnabled);
 
         Class<? extends Work> pageProjectionWorkClass;
         try {
@@ -286,7 +286,7 @@ public class PageFunctionCompiler
         return makeClassName("PageProjectionWork", classNameSuffix);
     }
 
-    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, CallSiteBinder callSiteBinder, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
+    private ClassDefinition definePageProjectWorkClass(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> projections, CallSiteBinder callSiteBinder, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix, boolean legacyTypeCoercionWarningEnabled)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -310,7 +310,7 @@ public class PageFunctionCompiler
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
         method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections, metadata, sqlFunctionProperties, "");
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections, metadata, sqlFunctionProperties, "", legacyTypeCoercionWarningEnabled);
 
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
@@ -322,7 +322,8 @@ public class PageFunctionCompiler
                 new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                legacyTypeCoercionWarningEnabled);
 
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(projections);
@@ -335,7 +336,8 @@ public class PageFunctionCompiler
                         new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields),
                         metadata,
                         sqlFunctionProperties,
-                        compiledLambdaMap);
+                        compiledLambdaMap,
+                        legacyTypeCoercionWarningEnabled);
 
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
@@ -547,22 +549,22 @@ public class PageFunctionCompiler
         return method;
     }
 
-    public Supplier<PageFilter> compileFilter(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
+    public Supplier<PageFilter> compileFilter(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix, boolean legacyTypeCoercionWarningEnabled)
     {
         if (filterCache == null) {
-            return compileFilterInternal(sqlFunctionProperties, filter, isOptimizeCommonSubExpression, classNameSuffix);
+            return compileFilterInternal(sqlFunctionProperties, filter, isOptimizeCommonSubExpression, classNameSuffix, legacyTypeCoercionWarningEnabled);
         }
-        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, ImmutableList.of(filter), isOptimizeCommonSubExpression));
+        return filterCache.getUnchecked(new CacheKey(sqlFunctionProperties, ImmutableList.of(filter), isOptimizeCommonSubExpression, legacyTypeCoercionWarningEnabled));
     }
 
-    private Supplier<PageFilter> compileFilterInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
+    private Supplier<PageFilter> compileFilterInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix, boolean legacyTypeCoercionWarningEnabled)
     {
         requireNonNull(filter, "filter is null");
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter);
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = defineFilterClass(sqlFunctionProperties, result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, isOptimizeCommonSubExpression, classNameSuffix);
+        ClassDefinition classDefinition = defineFilterClass(sqlFunctionProperties, result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, isOptimizeCommonSubExpression, classNameSuffix, legacyTypeCoercionWarningEnabled);
 
         Class<? extends PageFilter> functionClass;
         try {
@@ -590,7 +592,7 @@ public class PageFunctionCompiler
         return makeClassName(PageFilter.class.getSimpleName(), classNameSuffix);
     }
 
-    private ClassDefinition defineFilterClass(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
+    private ClassDefinition defineFilterClass(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix, boolean legacyTypeCoercionWarningEnabled)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -600,7 +602,7 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties, legacyTypeCoercionWarningEnabled);
 
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
@@ -611,7 +613,8 @@ public class PageFunctionCompiler
                 new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields),
                 metadata,
                 sqlFunctionProperties,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                legacyTypeCoercionWarningEnabled);
 
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(filter);
@@ -624,7 +627,8 @@ public class PageFunctionCompiler
                         new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields),
                         metadata,
                         sqlFunctionProperties,
-                        compiledLambdaMap);
+                        compiledLambdaMap,
+                        legacyTypeCoercionWarningEnabled);
 
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
@@ -852,14 +856,16 @@ public class PageFunctionCompiler
         private final SqlFunctionProperties sqlFunctionProperties;
         private final List<RowExpression> rowExpressions;
         private final boolean isOptimizeCommonSubExpression;
+        private final boolean legacyTypeCoercionWarningEnabled;
 
-        private CacheKey(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> rowExpressions, boolean isOptimizeCommonSubExpression)
+        private CacheKey(SqlFunctionProperties sqlFunctionProperties, List<RowExpression> rowExpressions, boolean isOptimizeCommonSubExpression, boolean legacyTypeCoercionWarningEnabled)
         {
             requireNonNull(rowExpressions, "rowExpressions is null");
             checkArgument(rowExpressions.size() >= 1, "Expect at least one RowExpression");
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
             this.rowExpressions = ImmutableList.copyOf(rowExpressions);
             this.isOptimizeCommonSubExpression = isOptimizeCommonSubExpression;
+            this.legacyTypeCoercionWarningEnabled = legacyTypeCoercionWarningEnabled;
         }
 
         @Override
@@ -874,13 +880,14 @@ public class PageFunctionCompiler
             CacheKey that = (CacheKey) o;
             return Objects.equals(sqlFunctionProperties, that.sqlFunctionProperties) &&
                     Objects.equals(rowExpressions, that.rowExpressions) &&
-                    isOptimizeCommonSubExpression == that.isOptimizeCommonSubExpression;
+                    isOptimizeCommonSubExpression == that.isOptimizeCommonSubExpression &&
+                    legacyTypeCoercionWarningEnabled == that.legacyTypeCoercionWarningEnabled;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(sqlFunctionProperties, rowExpressions, isOptimizeCommonSubExpression);
+            return Objects.hash(sqlFunctionProperties, rowExpressions, isOptimizeCommonSubExpression, legacyTypeCoercionWarningEnabled);
         }
     }
 }
