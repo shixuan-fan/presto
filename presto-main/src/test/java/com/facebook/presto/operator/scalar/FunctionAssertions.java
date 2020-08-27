@@ -108,6 +108,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.createBooleansBlock;
@@ -976,7 +977,8 @@ public final class FunctionAssertions
                     ImmutableList.of(projection.getType()),
                     Optional.empty(),
                     new DataSize(0, BYTE),
-                    0);
+                    0,
+                    jsonCodec(Split.class));
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

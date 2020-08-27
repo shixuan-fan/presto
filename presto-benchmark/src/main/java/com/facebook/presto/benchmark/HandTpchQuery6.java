@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.OperatorFactory;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -93,7 +95,8 @@ public class HandTpchQuery6
                 Step.SINGLE,
                 ImmutableList.of(
                         doubleSum.bind(ImmutableList.of(0), Optional.empty())),
-                false);
+                false,
+                jsonCodec(Split.class));
 
         return ImmutableList.of(tableScanOperator, tpchQuery6Operator, aggregationOperator);
     }

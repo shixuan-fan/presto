@@ -94,6 +94,28 @@ public final class AggregationNode
         this.outputs = unmodifiableList(outputs);
     }
 
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) { return true; }
+        if (o == null || getClass() != o.getClass()) { return false; }
+        AggregationNode that = (AggregationNode) o;
+        return Objects.equals(source, that.source) &&
+                Objects.equals(aggregations, that.aggregations) &&
+                Objects.equals(groupingSets, that.groupingSets) &&
+                Objects.equals(preGroupedVariables, that.preGroupedVariables) &&
+                step == that.step &&
+                Objects.equals(hashVariable, that.hashVariable) &&
+                Objects.equals(groupIdVariable, that.groupIdVariable) &&
+                Objects.equals(outputs, that.outputs);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(source, aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable, outputs);
+    }
+
     public List<VariableReferenceExpression> getGroupingKeys()
     {
         return groupingSets.getGroupingKeys();
@@ -274,6 +296,23 @@ public final class AggregationNode
         public Set<Integer> getGlobalGroupingSets()
         {
             return globalGroupingSets;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) { return true; }
+            if (o == null || getClass() != o.getClass()) { return false; }
+            GroupingSetDescriptor that = (GroupingSetDescriptor) o;
+            return groupingSetCount == that.groupingSetCount &&
+                    Objects.equals(groupingKeys, that.groupingKeys) &&
+                    Objects.equals(globalGroupingSets, that.globalGroupingSets);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(groupingKeys, groupingSetCount, globalGroupingSets);
         }
     }
 

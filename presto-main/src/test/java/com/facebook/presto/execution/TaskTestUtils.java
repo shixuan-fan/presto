@@ -168,6 +168,7 @@ public final class TaskTestUtils
                 new LookupJoinOperators(),
                 new OrderingCompiler(),
                 jsonCodec(TableCommitContext.class),
+                jsonCodec(Split.class),
                 new RowExpressionDeterminismEvaluator(metadata));
     }
 

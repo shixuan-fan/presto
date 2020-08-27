@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
@@ -51,6 +52,7 @@ public class TableScanOperator
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
+        private final JsonCodec<Split> splitCodec;
         private boolean closed;
 
         public TableScanOperatorFactory(
@@ -58,13 +60,15 @@ public class TableScanOperator
                 PlanNodeId sourceId,
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns)
+                Iterable<ColumnHandle> columns,
+                JsonCodec<Split> splitCodec)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            this.splitCodec = splitCodec;
         }
 
         @Override
@@ -83,7 +87,8 @@ public class TableScanOperator
                     sourceId,
                     pageSourceProvider,
                     table,
-                    columns);
+                    columns,
+                    splitCodec);
         }
 
         @Override
@@ -100,6 +105,7 @@ public class TableScanOperator
     private final List<ColumnHandle> columns;
     private final LocalMemoryContext systemMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
+    private final JsonCodec<Split> splitCodec;
 
     private Split split;
     private ConnectorPageSource source;
@@ -115,7 +121,8 @@ public class TableScanOperator
             PlanNodeId planNodeId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            Iterable<ColumnHandle> columns)
+            Iterable<ColumnHandle> columns,
+            JsonCodec<Split> splitCodec)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -123,6 +130,7 @@ public class TableScanOperator
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(TableScanOperator.class.getSimpleName());
+        this.splitCodec = splitCodec;
     }
 
     @Override
@@ -256,6 +264,7 @@ public class TableScanOperator
             // update operator stats
             operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
             recordSourceRawInputStats();
+//            page = page.appendColumn(RunLengthEncodedBlock.create(VARBINARY, wrappedBuffer(splitCodec.toJsonBytes(split)), page.getPositionCount()));
         }
 
         // updating system memory usage should happen after page is loaded.

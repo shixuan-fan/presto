@@ -65,7 +65,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
@@ -192,7 +191,7 @@ public class SqlStandardAccessControl
     {
         // TODO: Implement column level access control
         if (!checkTablePermission(transaction, identity, tableName, SELECT, false)) {
-            denySelectTable(tableName.toString());
+//            denySelectTable(tableName.toString());
         }
     }
 

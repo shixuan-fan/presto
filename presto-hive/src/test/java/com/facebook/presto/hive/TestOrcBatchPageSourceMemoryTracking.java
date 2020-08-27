@@ -98,6 +98,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -528,7 +529,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     new PlanNodeId("0"),
                     (session, split, table, columnHandles) -> pageSource,
                     table,
-                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
+                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
+                    jsonCodec(Split.class));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
             return operator;
@@ -555,7 +557,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     types,
                     Optional.empty(),
                     new DataSize(0, BYTE),
-                    0);
+                    0,
+                    jsonCodec(Split.class));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
             return operator;

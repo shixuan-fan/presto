@@ -26,6 +26,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
@@ -152,6 +153,25 @@ public final class TableScanNode
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTableScan(this, context);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) { return true; }
+        if (o == null || getClass() != o.getClass()) { return false; }
+        TableScanNode that = (TableScanNode) o;
+        return Objects.equals(table, that.table) &&
+                Objects.equals(assignments, that.assignments) &&
+                Objects.equals(outputVariables, that.outputVariables) &&
+                Objects.equals(currentConstraint, that.currentConstraint) &&
+                Objects.equals(enforcedConstraint, that.enforcedConstraint);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(table, assignments, outputVariables, currentConstraint, enforcedConstraint);
     }
 
     @Override

@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
@@ -33,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -102,7 +104,8 @@ public class TestAggregationOperator
                         REAL_SUM.bind(ImmutableList.of(4), Optional.empty()),
                         DOUBLE_SUM.bind(ImmutableList.of(5), Optional.empty()),
                         maxVarcharColumn.bind(ImmutableList.of(6), Optional.empty())),
-                false);
+                false,
+                jsonCodec(Split.class));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -135,7 +138,8 @@ public class TestAggregationOperator
                 new PlanNodeId("test"),
                 Step.SINGLE,
                 ImmutableList.of(LONG_SUM.bind(ImmutableList.of(0), Optional.empty())),
-                useSystemMemory);
+                useSystemMemory,
+                jsonCodec(Split.class));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)

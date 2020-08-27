@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -25,8 +28,10 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -44,14 +49,16 @@ public class AggregationOperator
         private final List<AccumulatorFactory> accumulatorFactories;
         private final boolean useSystemMemory;
         private boolean closed;
+        private final JsonCodec<Split> splitCodec;
 
-        public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, Step step, List<AccumulatorFactory> accumulatorFactories, boolean useSystemMemory)
+        public AggregationOperatorFactory(int operatorId, PlanNodeId planNodeId, Step step, List<AccumulatorFactory> accumulatorFactories, boolean useSystemMemory, JsonCodec<Split> splitCodec)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.step = step;
             this.accumulatorFactories = ImmutableList.copyOf(accumulatorFactories);
             this.useSystemMemory = useSystemMemory;
+            this.splitCodec = splitCodec;
         }
 
         @Override
@@ -59,7 +66,7 @@ public class AggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, AggregationOperator.class.getSimpleName());
-            return new AggregationOperator(operatorContext, step, accumulatorFactories, useSystemMemory);
+            return new AggregationOperator(operatorContext, step, accumulatorFactories, useSystemMemory, splitCodec);
         }
 
         @Override
@@ -71,7 +78,7 @@ public class AggregationOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new AggregationOperatorFactory(operatorId, planNodeId, step, accumulatorFactories, useSystemMemory);
+            return new AggregationOperatorFactory(operatorId, planNodeId, step, accumulatorFactories, useSystemMemory, splitCodec);
         }
     }
 
@@ -87,15 +94,20 @@ public class AggregationOperator
     private final LocalMemoryContext userMemoryContext;
     private final List<Aggregator> aggregates;
     private final boolean useSystemMemory;
+    private final Step step;
+    private final JsonCodec<Split> splitCodec;
 
     private State state = State.NEEDS_INPUT;
+    private Split split = null;
 
-    public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories, boolean useSystemMemory)
+    public AggregationOperator(OperatorContext operatorContext, Step step, List<AccumulatorFactory> accumulatorFactories, boolean useSystemMemory, JsonCodec<Split> splitCodec)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(AggregationOperator.class.getSimpleName());
         this.userMemoryContext = operatorContext.localUserMemoryContext();
         this.useSystemMemory = useSystemMemory;
+        this.step = step;
+        this.splitCodec = splitCodec;
 
         requireNonNull(step, "step is null");
 
@@ -149,6 +161,17 @@ public class AggregationOperator
 
         long memorySize = 0;
         for (Aggregator aggregate : aggregates) {
+//            if (step == PARTIAL) {
+//                if (split == null && page.getPositionCount() > 0) {
+//                    Block splitBlock = page.getBlock(page.getChannelCount() - 1);
+//                    split = splitCodec.fromJson(splitBlock.getSlice(0, 0, splitBlock.getSliceLength(0)).getBytes());
+//                }
+//                Block[] dataBlocks = new Block[page.getChannelCount() - 1];
+//                for (int i = 0; i < page.getChannelCount() - 1; i++) {
+//                    dataBlocks[i] = page.getBlock(i);
+//                }
+//                page = new Page(page.getPositionCount(), dataBlocks);
+//            }
             aggregate.processPage(page);
             memorySize += aggregate.getEstimatedSize();
         }
@@ -182,6 +205,10 @@ public class AggregationOperator
         }
 
         state = State.FINISHED;
-        return pageBuilder.build();
+        Page page = pageBuilder.build();
+        if (split == null) {
+            return page;
+        }
+        return page.appendColumn(RunLengthEncodedBlock.create(VARBINARY, wrappedBuffer(splitCodec.toJsonBytes(split)), page.getPositionCount()));
     }
 }

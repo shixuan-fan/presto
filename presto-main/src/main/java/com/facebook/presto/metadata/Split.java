@@ -128,7 +128,6 @@ public final class Split
 
         Split split = (Split) o;
         return connectorId.equals(split.connectorId) &&
-                transactionHandle.equals(split.transactionHandle) &&
                 connectorSplit.equals(split.connectorSplit) &&
                 lifespan.equals(split.lifespan);
     }
@@ -137,6 +136,6 @@ public final class Split
     public int hashCode()
     {
         // Requires connectorSplit's hash function to be set up correctly
-        return Objects.hash(connectorId, transactionHandle, connectorSplit, lifespan);
+        return Objects.hash(connectorId, connectorSplit, lifespan);
     }
 }

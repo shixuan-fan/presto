@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TableFinishOperator.PageSinkCommitter;
 import com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
 import com.facebook.presto.operator.TableFinishOperator.TableFinisher;
@@ -118,7 +119,8 @@ public class TestTableFinishOperator
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
                         ImmutableList.of(LONG_MAX.bind(ImmutableList.of(STATS_START_CHANNEL), Optional.empty())),
-                        true),
+                        true,
+                        jsonCodec(Split.class)),
                 descriptor,
                 session,
                 TABLE_COMMIT_CONTEXT_CODEC);
@@ -198,7 +200,8 @@ public class TestTableFinishOperator
                         new PlanNodeId("test"),
                         AggregationNode.Step.SINGLE,
                         ImmutableList.of(LONG_MAX.bind(ImmutableList.of(STATS_START_CHANNEL), Optional.empty())),
-                        true),
+                        true,
+                        jsonCodec(Split.class)),
                 descriptor,
                 session,
                 TABLE_COMMIT_CONTEXT_CODEC);

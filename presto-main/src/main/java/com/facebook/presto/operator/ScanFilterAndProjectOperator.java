@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
@@ -72,6 +73,7 @@ public class ScanFilterAndProjectOperator
     private final SettableFuture<?> blocked = SettableFuture.create();
     private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier;
     private final MergingPageOutput mergingOutput;
+    private final JsonCodec<Split> splitCodec;
 
     private RecordCursor cursor;
     private ConnectorPageSource pageSource;
@@ -94,7 +96,8 @@ public class ScanFilterAndProjectOperator
             Iterable<ColumnHandle> columns,
             Iterable<Type> types,
             Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier,
-            MergingPageOutput mergingOutput)
+            MergingPageOutput mergingOutput,
+            JsonCodec<Split> splitCodec)
     {
         this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
         this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
@@ -108,6 +111,7 @@ public class ScanFilterAndProjectOperator
         this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
         this.dynamicFilterSupplier = requireNonNull(dynamicFilterSupplier, "dynamicFilterSupplier is null");
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
+        this.splitCodec = splitCodec;
 
         this.pageBuilder = new PageBuilder(ImmutableList.copyOf(requireNonNull(types, "types is null")));
     }
@@ -237,12 +241,17 @@ public class ScanFilterAndProjectOperator
             }
         }
 
+        Page page;
         if (pageSource != null) {
-            return processPageSource();
+            page = processPageSource();
         }
         else {
-            return processColumnSource();
+            page = processColumnSource();
         }
+//        if (page != null) {
+//            page = page.appendColumn(RunLengthEncodedBlock.create(VARBINARY, wrappedBuffer(splitCodec.toJsonBytes(split)), page.getPositionCount()));
+//        }
+        return page;
     }
 
     private Page processColumnSource()
@@ -391,6 +400,7 @@ public class ScanFilterAndProjectOperator
         private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
+        private final JsonCodec<Split> splitCodec;
         private boolean closed;
 
         public ScanFilterAndProjectOperatorFactory(
@@ -405,7 +415,8 @@ public class ScanFilterAndProjectOperator
                 List<Type> types,
                 Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+                int minOutputPageRowCount,
+                JsonCodec<Split> splitCodec)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -419,6 +430,7 @@ public class ScanFilterAndProjectOperator
             this.dynamicFilterSupplier = requireNonNull(dynamicFilterSupplier, "dynamicFilterSupplier is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.splitCodec = splitCodec;
         }
 
         @Override
@@ -442,7 +454,8 @@ public class ScanFilterAndProjectOperator
                     columns,
                     types,
                     dynamicFilterSupplier,
-                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
+                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount),
+                    splitCodec);
         }
 
         @Override

@@ -115,14 +115,13 @@ public final class TableHandle
         // This works for now since the engine only pushdown filter to connector once during optimization.
         return Objects.equals(connectorId, other.connectorId) &&
                 Objects.equals(connectorHandle, other.connectorHandle) &&
-                Objects.equals(transaction, other.transaction) &&
                 Objects.equals(layout.isPresent(), other.layout.isPresent());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, connectorHandle, transaction, layout.isPresent());
+        return Objects.hash(connectorId, connectorHandle, layout.isPresent());
     }
 
     @Override

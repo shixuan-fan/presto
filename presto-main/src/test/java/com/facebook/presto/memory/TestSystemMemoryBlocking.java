@@ -51,6 +51,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -114,7 +115,8 @@ public class TestSystemMemoryBlocking
                         new ConnectorTableHandle() {},
                         new ConnectorTransactionHandle() {},
                         Optional.empty()),
-                ImmutableList.of());
+                ImmutableList.of(),
+                jsonCodec(Split.class));
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);

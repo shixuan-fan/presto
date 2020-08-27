@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner.FragmentCacheKey;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +49,7 @@ import java.util.function.Supplier;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.sql.planner.LocalExecutionPlanner.fragmentCache;
 import static com.facebook.presto.util.MoreUninterruptibles.tryLockUninterruptibly;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,6 +92,7 @@ public class Driver
     private TaskSource currentTaskSource;
 
     private final AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
+    private final AtomicReference<List<Page>> cachedPages = new AtomicReference<>();
 
     private enum State
     {
@@ -247,6 +251,14 @@ public class Driver
         SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
         for (ScheduledSplit newSplit : newSplits) {
             Split split = newSplit.getSplit();
+            if ((sourceOperator instanceof TableScanOperator || sourceOperator instanceof ScanFilterAndProjectOperator) && activeOperators.get(activeOperators.size() - 2) instanceof DriverSplitCacheOperator) {
+                DriverSplitCacheOperator cacheOperator = (DriverSplitCacheOperator) activeOperators.get(activeOperators.size() - 2);
+                cacheOperator.setSplit(split);
+                FragmentCacheKey cacheKey = new FragmentCacheKey(cacheOperator.getPlanNode(), split);
+                if (fragmentCache.containsKey(cacheKey)) {
+                    this.cachedPages.set(new LinkedList<>(fragmentCache.get(cacheKey)));
+                }
+            }
 
             Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
             deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
@@ -367,38 +379,52 @@ public class Driver
             }
 
             boolean movedPage = false;
-            for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
-                Operator current = activeOperators.get(i);
-                Operator next = activeOperators.get(i + 1);
-
-                // skip blocked operator
-                if (getBlockedFuture(current).isPresent()) {
-                    continue;
+            if (cachedPages.get() != null) {
+                Operator outputOperator = activeOperators.get(activeOperators.size() - 1);
+                List<Page> pages = cachedPages.get();
+                if (pages.isEmpty()) {
+                    outputOperator.finish();
+                    outputOperator.getOperatorContext().recordFinish(operationTimer);
                 }
+                else {
+                    outputOperator.addInput(pages.get(0));
+                    pages.remove(0);
+                }
+            }
+            else {
+                for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
+                    Operator current = activeOperators.get(i);
+                    Operator next = activeOperators.get(i + 1);
 
-                // if the current operator is not finished and next operator isn't blocked and needs input...
-                if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
-                    // get an output page from current operator
-                    Page page = current.getOutput();
-                    current.getOperatorContext().recordGetOutput(operationTimer, page);
-
-                    // if we got an output page, add it to the next operator
-                    if (page != null && page.getPositionCount() != 0) {
-                        next.addInput(page);
-                        next.getOperatorContext().recordAddInput(operationTimer, page);
-                        movedPage = true;
+                    // skip blocked operator
+                    if (getBlockedFuture(current).isPresent()) {
+                        continue;
                     }
 
-                    if (current instanceof SourceOperator) {
-                        movedPage = true;
-                    }
-                }
+                    // if the current operator is not finished and next operator isn't blocked and needs input...
+                    if (!current.isFinished() && !getBlockedFuture(next).isPresent() && next.needsInput()) {
+                        // get an output page from current operator
+                        Page page = current.getOutput();
+                        current.getOperatorContext().recordGetOutput(operationTimer, page);
 
-                // if current operator is finished...
-                if (current.isFinished()) {
-                    // let next operator know there will be no more data
-                    next.finish();
-                    next.getOperatorContext().recordFinish(operationTimer);
+                        // if we got an output page, add it to the next operator
+                        if (page != null && page.getPositionCount() != 0) {
+                            next.addInput(page);
+                            next.getOperatorContext().recordAddInput(operationTimer, page);
+                            movedPage = true;
+                        }
+
+                        if (current instanceof SourceOperator) {
+                            movedPage = true;
+                        }
+                    }
+
+                    // if current operator is finished...
+                    if (current.isFinished()) {
+                        // let next operator know there will be no more data
+                        next.finish();
+                        next.getOperatorContext().recordFinish(operationTimer);
+                    }
                 }
             }
 

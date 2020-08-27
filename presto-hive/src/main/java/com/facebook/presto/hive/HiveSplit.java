@@ -299,6 +299,23 @@ public class HiveSplit
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) { return true; }
+        if (o == null || getClass() != o.getClass()) { return false; }
+        HiveSplit hiveSplit = (HiveSplit) o;
+        return start == hiveSplit.start &&
+                length == hiveSplit.length &&
+                Objects.equals(path, hiveSplit.path);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(path, start, length);
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

@@ -58,6 +58,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.block.BlockAssertions.toValues;
@@ -128,7 +129,8 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(VARCHAR),
                 Optional.empty(),
                 new DataSize(0, BYTE),
-                0);
+                0,
+                jsonCodec(Split.class));
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -173,7 +175,8 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(64, KILOBYTE),
-                2);
+                2,
+                jsonCodec(Split.class));
 
         SourceOperator operator = factory.createOperator(newDriverContext());
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -218,7 +221,8 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(0, BYTE),
-                0);
+                0,
+                jsonCodec(Split.class));
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -257,7 +261,8 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(0, BYTE),
-                0);
+                0,
+                jsonCodec(Split.class));
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -302,7 +307,8 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(VARCHAR),
                 Optional.empty(),
                 new DataSize(0, BYTE),
-                0);
+                0,
+                jsonCodec(Split.class));
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -356,7 +362,8 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(0, BYTE),
-                0);
+                0,
+                jsonCodec(Split.class));
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -424,7 +431,8 @@ public class TestScanFilterAndProjectOperator
                 ImmutableList.of(BIGINT),
                 Optional.empty(),
                 new DataSize(0, BYTE),
-                0);
+                0,
+                jsonCodec(Split.class));
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));

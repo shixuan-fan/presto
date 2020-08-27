@@ -31,6 +31,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -213,6 +214,34 @@ public final class HiveTableLayoutHandle
     public Optional<Set<HiveColumnHandle>> getRequestedColumns()
     {
         return requestedColumns;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) { return true; }
+        if (o == null || getClass() != o.getClass()) { return false; }
+        HiveTableLayoutHandle that = (HiveTableLayoutHandle) o;
+        return pushdownFilterEnabled == that.pushdownFilterEnabled &&
+                Objects.equals(schemaTableName, that.schemaTableName) &&
+                Objects.equals(partitionColumns, that.partitionColumns) &&
+                Objects.equals(dataColumns, that.dataColumns) &&
+                Objects.equals(tableParameters, that.tableParameters) &&
+                Objects.equals(domainPredicate, that.domainPredicate) &&
+                Objects.equals(remainingPredicate, that.remainingPredicate) &&
+                Objects.equals(predicateColumns, that.predicateColumns) &&
+                Objects.equals(partitionColumnPredicate, that.partitionColumnPredicate) &&
+                Objects.equals(bucketHandle, that.bucketHandle) &&
+                Objects.equals(bucketFilter, that.bucketFilter) &&
+                Objects.equals(layoutString, that.layoutString) &&
+                Objects.equals(requestedColumns, that.requestedColumns) &&
+                Objects.equals(partitions, that.partitions);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(schemaTableName, partitionColumns, dataColumns, tableParameters, domainPredicate, remainingPredicate, predicateColumns, partitionColumnPredicate, bucketHandle, bucketFilter, pushdownFilterEnabled, layoutString, requestedColumns, partitions);
     }
 
     @Override
