@@ -15,6 +15,7 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalLong;
 
@@ -47,5 +48,10 @@ public interface ConnectorSplit
     default OptionalLong getSplitSizeInBytes()
     {
         return OptionalLong.empty();
+    }
+
+    default List<ColumnHandle> getRedundantColumnPredicates()
+    {
+        return new ArrayList<>();
     }
 }

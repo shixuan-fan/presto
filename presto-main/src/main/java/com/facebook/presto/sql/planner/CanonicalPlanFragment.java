@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
+import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +43,32 @@ public class CanonicalPlanFragment
     public CanonicalPartitioningScheme getPartitioningScheme()
     {
         return partitioningScheme;
+    }
+
+    public CanonicalPlanFragment removeColumnPredicate(List<ColumnHandle> columns)
+    {
+        Rewriter rewriter = new Rewriter(columns);
+        return new CanonicalPlanFragment(rewriteWith(rewriter, plan), partitioningScheme);
+    }
+
+    private static class Rewriter
+            extends SimplePlanRewriter<Void>
+    {
+        private final List<ColumnHandle> columns;
+
+        private Rewriter(List<ColumnHandle> columns)
+        {
+            this.columns = columns;
+        }
+
+        @Override
+        public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
+        {
+            if (node instanceof CanonicalTableScanNode) {
+                return ((CanonicalTableScanNode) node).removeColumnPredicate(columns);
+            }
+            return super.visitPlan(node, context);
+        }
     }
 
     @Override

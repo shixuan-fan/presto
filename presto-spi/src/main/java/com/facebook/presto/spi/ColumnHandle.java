@@ -41,4 +41,9 @@ public interface ColumnHandle
     {
         return this;
     }
+
+    default Subfield toSubfield()
+    {
+        return new Subfield(toString());
+    }
 }

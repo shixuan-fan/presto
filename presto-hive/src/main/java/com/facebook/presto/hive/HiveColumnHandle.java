@@ -184,6 +184,12 @@ public class HiveColumnHandle
     }
 
     @Override
+    public Subfield toSubfield()
+    {
+        return new Subfield(name);
+    }
+
+    @Override
     public int hashCode()
     {
         return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment);

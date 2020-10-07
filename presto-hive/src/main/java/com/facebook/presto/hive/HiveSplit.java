@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
@@ -61,6 +62,7 @@ public class HiveSplit
     private final CacheQuotaRequirement cacheQuotaRequirement;
     private final Optional<EncryptionInformation> encryptionInformation;
     private final Map<String, String> customSplitInfo;
+    private final List<ColumnHandle> redundantColumnPredicates;
 
     @JsonCreator
     public HiveSplit(
@@ -84,7 +86,8 @@ public class HiveSplit
             @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo,
             @JsonProperty("cacheQuota") CacheQuotaRequirement cacheQuotaRequirement,
             @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation,
-            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo)
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo,
+            @JsonProperty("redundantColumnPredicates") List<ColumnHandle> redundantColumnPredicates)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -126,6 +129,7 @@ public class HiveSplit
         this.cacheQuotaRequirement = cacheQuotaRequirement;
         this.encryptionInformation = encryptionInformation;
         this.customSplitInfo = ImmutableMap.copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
+        this.redundantColumnPredicates = redundantColumnPredicates;
     }
 
     @JsonProperty
@@ -272,6 +276,13 @@ public class HiveSplit
     public Map<String, String> getCustomSplitInfo()
     {
         return customSplitInfo;
+    }
+
+    @Override
+    @JsonProperty
+    public List<ColumnHandle> getRedundantColumnPredicates()
+    {
+        return redundantColumnPredicates;
     }
 
     @Override

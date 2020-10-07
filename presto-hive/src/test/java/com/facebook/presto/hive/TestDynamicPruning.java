@@ -148,7 +148,8 @@ public class TestDynamicPruning
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableList.of());
 
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),

@@ -31,6 +31,7 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -56,6 +57,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -360,7 +362,8 @@ public class HiveSplitManager
                         firstPartition,
                         Optional.empty(),
                         ImmutableMap.of(),
-                        encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns)));
+                        encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns),
+                        ImmutableList.of()));
             }
         }
 
@@ -372,7 +375,9 @@ public class HiveSplitManager
                     Lists.transform(partitionBatch, HivePartition::getPartitionId));
             Map<String, PartitionStatistics> stats = metastore.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.copyOf(Lists.transform(partitionBatch, HivePartition::getPartitionId)));
             ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builder();
+            ImmutableMap.Builder<String, List<ColumnHandle>> redundantColumnPredicateBuilder = ImmutableMap.builder();
             for (Map.Entry<String, Optional<Partition>> entry : batch.entrySet()) {
+                List<ColumnHandle> redundantColumns = new ArrayList<>();
                 if (!entry.getValue().isPresent()) {
                     throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
                 }
@@ -381,9 +386,13 @@ public class HiveSplitManager
                     Map<String, HiveColumnStatistics> columnStatsMap = stats.get(entry.getKey()).getColumnStatistics();
                     for (Map.Entry<String, HiveColumnHandle> predicateColumnEntry : layout.getPredicateColumns().entrySet()) {
                         if (columnStatsMap.containsKey(predicateColumnEntry.getKey())) {
-                            Optional<ValueSet> valueSet = getValueSetForColumnStats(columnStatsMap.get(predicateColumnEntry.getKey()), predicateColumnEntry.getValue().getHiveType().getHiveTypeName().toString());
-                            if (valueSet.isPresent()) {
-                                if (!layout.getDomainPredicate().getDomains().get().get(new Subfield(predicateColumnEntry.getKey())).getValues().overlaps(valueSet.get())) {
+                            Optional<ValueSet> columnStatsValueSet = getValueSetForColumnStats(columnStatsMap.get(predicateColumnEntry.getKey()), predicateColumnEntry.getValue().getHiveType().getHiveTypeName().toString());
+                            if (columnStatsValueSet.isPresent()) {
+                                ValueSet columnPredicateValueSet = layout.getDomainPredicate().getDomains().get().get(new Subfield(predicateColumnEntry.getKey())).getValues();
+                                if (columnPredicateValueSet.contains(columnStatsValueSet.get())) {
+                                    redundantColumns.add(predicateColumnEntry.getValue());
+                                }
+                                if (!columnPredicateValueSet.overlaps(columnStatsValueSet.get())) {
                                     pruned = true;
                                     break;
                                 }
@@ -394,9 +403,11 @@ public class HiveSplitManager
                         continue;
                     }
                 }
+                redundantColumnPredicateBuilder.put(entry.getKey(), redundantColumns);
                 partitionBuilder.put(entry.getKey(), entry.getValue().get());
             }
             Map<String, Partition> partitions = partitionBuilder.build();
+            Map<String, List<ColumnHandle>> redundantColumnPredicates = redundantColumnPredicateBuilder.build();
 //            if (partitionBatch.size() != partitions.size()) {
 //                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
 //            }
@@ -503,7 +514,7 @@ public class HiveSplitManager
                     }
                 }
 
-                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), partitionSchemaDifference.build(), encryptionInformation));
+                results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), partitionSchemaDifference.build(), encryptionInformation, redundantColumnPredicates.get(hivePartition.getPartitionId())));
             }
 
             return results.build();

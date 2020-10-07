@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
@@ -67,6 +68,7 @@ public class InternalHiveSplit
     private final Optional<byte[]> extraFileInfo;
     private final Optional<EncryptionInformation> encryptionInformation;
     private final Map<String, String> customSplitInfo;
+    private final List<ColumnHandle> redundantColumnPredicates;
 
     private long start;
     private int currentBlockIndex;
@@ -85,7 +87,8 @@ public class InternalHiveSplit
             HiveSplitPartitionInfo partitionInfo,
             Optional<byte[]> extraFileInfo,
             Optional<EncryptionInformation> encryptionInformation,
-            Map<String, String> customSplitInfo)
+            Map<String, String> customSplitInfo,
+            List<ColumnHandle> redundantColumnPredicates)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "end must be positive");
@@ -124,6 +127,7 @@ public class InternalHiveSplit
         }
         blockAddresses = allAddressesEmpty ? ImmutableList.of() : addressesBuilder.build();
         this.encryptionInformation = encryptionInformation;
+        this.redundantColumnPredicates = redundantColumnPredicates;
     }
 
     public String getPath()
@@ -261,6 +265,11 @@ public class InternalHiveSplit
             result += sizeOf(extraFileInfo.get());
         }
         return result;
+    }
+
+    public List<ColumnHandle> getRedundantColumnPredicates()
+    {
+        return redundantColumnPredicates;
     }
 
     @Override

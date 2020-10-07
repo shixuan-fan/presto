@@ -15,7 +15,9 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.spi.ColumnHandle;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -27,17 +29,20 @@ public class HivePartitionMetadata
     private final HivePartition hivePartition;
     private final Map<Integer, Column> partitionSchemaDifference;
     private final Optional<EncryptionInformation> encryptionInformation;
+    private final List<ColumnHandle> redundantColumnPredicates;
 
     HivePartitionMetadata(
             HivePartition hivePartition,
             Optional<Partition> partition,
             Map<Integer, Column> partitionSchemaDifference,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            List<ColumnHandle> redundantColumnPredicates)
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.hivePartition = requireNonNull(hivePartition, "hivePartition is null");
         this.partitionSchemaDifference = requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
         this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
+        this.redundantColumnPredicates = requireNonNull(redundantColumnPredicates, "redundantColumnPredicates is null");
     }
 
     public HivePartition getHivePartition()
@@ -61,5 +66,10 @@ public class HivePartitionMetadata
     public Optional<EncryptionInformation> getEncryptionInformation()
     {
         return encryptionInformation;
+    }
+
+    public List<ColumnHandle> getRedundantColumnPredicates()
+    {
+        return redundantColumnPredicates;
     }
 }

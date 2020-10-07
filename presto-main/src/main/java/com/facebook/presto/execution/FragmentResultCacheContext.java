@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.operator.FragmentResultCacheManager;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -26,6 +27,7 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -52,6 +54,11 @@ public class FragmentResultCacheContext
 
         Optional<CanonicalPlanFragment> canonicalPlanFragment = generateCanonicalPlan(root, partitioningScheme);
         return canonicalPlanFragment.map(fragment -> new FragmentResultCacheContext(fragmentResultCacheManager, fragment));
+    }
+
+    public FragmentResultCacheContext removeRedundantColumnPredicates(List<ColumnHandle> redundantColumnPredicates)
+    {
+        return new FragmentResultCacheContext(fragmentResultCacheManager, canonicalPlanFragment.removeColumnPredicate(redundantColumnPredicates));
     }
 
     private static boolean isEligibleForFragmentResultCaching(PlanNode root)

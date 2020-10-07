@@ -330,7 +330,7 @@ public class BackgroundHiveSplitLoader
                         getNodeSelectionStrategy(session),
                         getMaxInitialSplitSize(session),
                         s3SelectPushdownEnabled,
-                        new HiveSplitPartitionInfo(storage, path.toUri(), partitionKeys, partitionName, partitionDataColumnCount, partition.getPartitionSchemaDifference(), Optional.empty()),
+                        new HiveSplitPartitionInfo(storage, path.toUri(), partitionKeys, partitionName, partitionDataColumnCount, partition.getPartitionSchemaDifference(), Optional.empty(), partition.getRedundantColumnPredicates()),
                         schedulerUsesHostAddresses,
                         partition.getEncryptionInformation());
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
@@ -372,7 +372,8 @@ public class BackgroundHiveSplitLoader
                         partitionName,
                         partitionDataColumnCount,
                         partition.getPartitionSchemaDifference(),
-                        bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty()),
+                        bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
+                        partition.getRedundantColumnPredicates()),
                 schedulerUsesHostAddresses,
                 partition.getEncryptionInformation());
 

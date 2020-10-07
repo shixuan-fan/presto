@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -46,6 +47,7 @@ public class HiveSplitPartitionInfo
     private final int partitionDataColumnCount;
     private final Map<Integer, Column> partitionSchemaDifference;
     private final Optional<HiveSplit.BucketConversion> bucketConversion;
+    private final List<ColumnHandle> redundantColumnPredicates;
 
     // keep track of how many InternalHiveSplits reference this PartitionInfo.
     private final AtomicInteger references = new AtomicInteger(0);
@@ -57,7 +59,8 @@ public class HiveSplitPartitionInfo
             String partitionName,
             int partitionDataColumnCount,
             Map<Integer, Column> partitionSchemaDifference,
-            Optional<HiveSplit.BucketConversion> bucketConversion)
+            Optional<HiveSplit.BucketConversion> bucketConversion,
+            List<ColumnHandle> redundantColumnPredicates)
     {
         requireNonNull(storage, "storage is null");
         requireNonNull(path, "path is null");
@@ -73,6 +76,7 @@ public class HiveSplitPartitionInfo
         this.partitionDataColumnCount = partitionDataColumnCount;
         this.partitionSchemaDifference = partitionSchemaDifference;
         this.bucketConversion = bucketConversion;
+        this.redundantColumnPredicates = redundantColumnPredicates;
     }
 
     // Hadoop path strips trailing slashes from the path string,
@@ -153,5 +157,10 @@ public class HiveSplitPartitionInfo
     public URI getPath()
     {
         return path;
+    }
+
+    public List<ColumnHandle> getRedundantColumnPredicates()
+    {
+        return redundantColumnPredicates;
     }
 }

@@ -99,7 +99,8 @@ public class TestHiveSplit
                         ImmutableMap.of(),
                         "test_algo",
                         "test_provider"))),
-                customSplitInfo);
+                customSplitInfo,
+                ImmutableList.of());
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);

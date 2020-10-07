@@ -204,7 +204,8 @@ public class InternalHiveSplitFactory
                 partitionInfo,
                 extraFileInfo,
                 encryptionInformation,
-                customSplitInfo));
+                customSplitInfo,
+                partitionInfo.getRedundantColumnPredicates()));
     }
 
     private boolean needsHostAddresses(boolean forceLocalScheduling, List<HostAddress> addresses)

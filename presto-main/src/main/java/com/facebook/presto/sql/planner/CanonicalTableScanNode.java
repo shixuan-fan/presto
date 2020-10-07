@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.TupleDomain.ColumnDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -27,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
@@ -83,6 +88,11 @@ public class CanonicalTableScanNode
         return assignments;
     }
 
+    public CanonicalTableScanNode removeColumnPredicate(List<ColumnHandle> columns)
+    {
+        return new CanonicalTableScanNode(super.getId(), table.removeColumnPredicate(columns), outputVariables, assignments);
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -113,17 +123,17 @@ public class CanonicalTableScanNode
 
         public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle)
         {
-            return new CanonicalTableHandle(tableHandle.getConnectorId(), tableHandle.getConnectorHandle(), tableHandle.getLayout());
+            return new CanonicalTableHandle(tableHandle.getConnectorId(), tableHandle.getConnectorHandle(), tableHandle.getLayout().map(ConnectorTableLayoutHandle::getIdentifier));
         }
 
         private CanonicalTableHandle(
                 ConnectorId connectorId,
                 ConnectorTableHandle connectorHandle,
-                Optional<ConnectorTableLayoutHandle> layout)
+                Optional<Object> layoutIdentifier)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
-            this.layoutIdentifier = requireNonNull(layout, "layout is null").map(ConnectorTableLayoutHandle::getIdentifier);
+            this.layoutIdentifier = requireNonNull(layoutIdentifier, "layoutIdentifier is null");
         }
 
         public ConnectorId getConnectorId()
@@ -139,6 +149,28 @@ public class CanonicalTableScanNode
         public Optional<Object> getLayoutIdentifier()
         {
             return layoutIdentifier;
+        }
+
+        public CanonicalTableHandle removeColumnPredicate(List<ColumnHandle> columns)
+        {
+            if (!layoutIdentifier.isPresent()) {
+                return this;
+            }
+
+            TupleDomain<Subfield> domainPredicate = (TupleDomain<Subfield>) ((Map<String, Object>) layoutIdentifier.get()).get("domainPredicate");
+            if (!domainPredicate.getColumnDomains().isPresent()) {
+                return this;
+            }
+
+            Set<Subfield> subfields = columns.stream()
+                    .map(ColumnHandle::toSubfield)
+                    .collect(Collectors.toSet());
+            List<ColumnDomain<Subfield>> columnDomains = domainPredicate.getColumnDomains().get().stream()
+                    .filter(columnDomain -> !subfields.contains(columnDomain.getColumn()))
+                    .collect(Collectors.toList());
+            Map<String, Object> processedLayoutIdentifier = new HashMap<>(((Map<String, Object>) layoutIdentifier.get()));
+            processedLayoutIdentifier.put("domainPredicate", TupleDomain.fromColumnDomains(Optional.of(columnDomains)));
+            return new CanonicalTableHandle(connectorId, connectorHandle, Optional.of(processedLayoutIdentifier));
         }
 
         @Override

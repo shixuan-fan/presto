@@ -542,10 +542,12 @@ public class TestHiveSplitSource
                             "partition-name",
                             id,
                             ImmutableMap.of(),
-                            Optional.empty()),
+                            Optional.empty(),
+                            ImmutableList.of()),
                     Optional.empty(),
                     Optional.empty(),
-                    ImmutableMap.of());
+                    ImmutableMap.of(),
+                    ImmutableList.of());
         }
     }
 }
