@@ -387,7 +387,12 @@ public class HiveSplitManager
                     for (Map.Entry<String, HiveColumnHandle> predicateColumnEntry : layout.getPredicateColumns().entrySet()) {
                         if (columnStatsMap.containsKey(predicateColumnEntry.getKey())) {
                             Optional<ValueSet> columnStatsValueSet = getValueSetForColumnStats(columnStatsMap.get(predicateColumnEntry.getKey()), predicateColumnEntry.getValue().getHiveType().getHiveTypeName().toString());
-                            if (columnStatsValueSet.isPresent()) {
+                            if (columnStatsValueSet.isPresent() && layout.getDomainPredicate().getDomains().isPresent()) {
+                                Map<Subfield, Domain> subfieldDomains = layout.getDomainPredicate().getDomains().get();
+                                Subfield subfield = new Subfield(predicateColumnEntry.getKey());
+                                if (!subfieldDomains.containsKey(subfield)) {
+                                    continue;
+                                }
                                 ValueSet columnPredicateValueSet = layout.getDomainPredicate().getDomains().get().get(new Subfield(predicateColumnEntry.getKey())).getValues();
                                 if (columnPredicateValueSet.contains(columnStatsValueSet.get())) {
                                     redundantColumns.add(predicateColumnEntry.getValue());
