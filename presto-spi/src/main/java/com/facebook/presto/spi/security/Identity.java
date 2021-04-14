@@ -55,6 +55,7 @@ public class Identity
         this.roles = unmodifiableMap(requireNonNull(roles, "roles is null"));
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
         this.extraAuthenticators = unmodifiableMap(new HashMap<>(requireNonNull(extraAuthenticators, "extraAuthenticators is null")));
+        System.out.println(extraCredentials);
     }
 
     public String getUser()
@@ -113,13 +114,16 @@ public class Identity
             return false;
         }
         Identity identity = (Identity) o;
-        return Objects.equals(user, identity.user);
+        return Objects.equals(user, identity.user) &&
+                Objects.equals(principal, identity.principal) &&
+                Objects.equals(roles, identity.roles) &&
+                Objects.equals(extraCredentials, identity.extraCredentials);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(user);
+        return Objects.hash(user, principal, roles, extraCredentials);
     }
 
     @Override

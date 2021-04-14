@@ -21,18 +21,23 @@ import static java.util.Objects.requireNonNull;
 
 public class AccessControlContext
 {
-    private final QueryId queryId;
+    public static final AccessControlContext CACHE_REFRESH_CONTEXT = new AccessControlContext(
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of("cache_refresh"));
+
+    private final Optional<QueryId> queryId;
     private final Optional<String> clientInfo;
     private final Optional<String> source;
 
-    public AccessControlContext(QueryId queryId, Optional<String> clientInfo, Optional<String> source)
+    public AccessControlContext(Optional<QueryId> queryId, Optional<String> clientInfo, Optional<String> source)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.source = requireNonNull(source, "source is null");
     }
 
-    public QueryId getQueryId()
+    public Optional<QueryId> getQueryId()
     {
         return queryId;
     }
